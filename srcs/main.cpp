@@ -13,10 +13,11 @@ void handleSignal(int signal){
 	else 
 		signalName = "unknow";
 
-	std::cout << "\nSignal " << signalName << " recceived, closing server ..." << std::endl;
+	std::cout << "\nSignal " << signalName << " received, closing server ..." << std::endl;
 
 
 	//TODO: Appliquer le signal au serveur
+
 }
 
 int main(int ac, char **av){
@@ -39,7 +40,6 @@ int main(int ac, char **av){
 	// std::cout << "Starting IRC server on port " << port << " with password : " << password << std::endl;
 
 	//configuration des signaux :
-
 	struct sigaction sa;
 	//quand un signal est recu, on exec handleSignal
 	sa.sa_handler = handleSignal;
