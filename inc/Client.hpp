@@ -2,7 +2,8 @@
 #include <iostream>
 #include <vector>
 
-//pour pouvor faire un vector de channel pour le client
+//pour pouvor faire un vector de channel pour le client 
+//faire la classe channel donc
 class Channel;
 
 class Client{
