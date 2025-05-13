@@ -13,7 +13,7 @@ OBJS := $(patsubst $(SRC_DIR)/%,$(OBJ_DIR)/%,$(SRCS:.cpp=.o))
 DEPS := $(OBJS:.o=.d)
 
 # Nom de l'exécutable
-NAME := ircserv
+NAME := irc
 
 # Nombre total de fichiers
 TOTAL_FILES := $(words $(SRCS))
