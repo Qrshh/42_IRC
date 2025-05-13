@@ -1,4 +1,7 @@
 #include <iostream>
+#include <cstdlib>
+#include <cstring>
+#include <cerrno>
 #include <csignal>
 
 void handleSignal(int signal){
@@ -26,7 +29,7 @@ int main(int ac, char **av){
 	char *endptr;	
 	long port = std::strtol(av[1], &endptr, 10);
 
-	if(*endptr != '\0' || port <= 0 || port > UINT16_MAX)
+	if(*endptr != '\0' || port <= 0 || port > 65535)
 	{
 		std::cerr << "Invalid port. Port must be between 1 and 65535." << std::endl;
 		return EXIT_FAILURE;
@@ -47,7 +50,6 @@ int main(int ac, char **av){
 		std::cerr << "Signals configuration failed" << std::endl;
 		return EXIT_FAILURE;
 	}	
-
 
 	//TODO: Faire un try catch pour executer le serveur
 
