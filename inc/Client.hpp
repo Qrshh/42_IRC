@@ -18,7 +18,7 @@ class Client{
         std::vector<Channel*> channels;
 
     public:
-        Client() {connected = false;}
+        Client() {connected = false; }
 
         void setFd(int fd) {Fd = fd; }
         void setUserName(const std::string &user) {userName = user; }
@@ -38,5 +38,10 @@ class Client{
         std::string getNickName() const {return nickName; }
         std::string getUserName() const {return userName; }
         std::string getHostName() const {return hostName; }
+
+		void removeChannel(Channel* channel) {
+			channels.erase(std::remove(channels.begin(), channels.end(), channel), channels.end());
+		}
+
 
 };
