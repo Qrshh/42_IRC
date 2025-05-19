@@ -3,6 +3,9 @@
 #include <cstring>
 #include <cerrno>
 #include <csignal>
+#include "Client.hpp"
+#include "Channel.hpp"
+#include "Server.hpp"
 
 void handleSignal(int signal){
 	const char* signalName;
@@ -52,6 +55,14 @@ int main(int ac, char **av){
 	}	
 
 	//TODO: Faire un try catch pour executer le serveur
+
+	try{
+		Server server(static_cast<int>(port), password);
+		server.run();
+	} catch (const std::exception &e){
+		std::cerr << "Server error: " << e.what() << std::endl;
+		return EXIT_FAILURE;
+	}
 
 	return EXIT_SUCCESS;
 }
