@@ -19,11 +19,8 @@ void handleSignal(int signal){
 		signalName = "unknow";
 
 	std::cout << "\nSignal " << signalName << " received, closing server ..." << std::endl;
-
-
 	if(g_server)
-		g_server->stop();
-
+		g_server = NULL;
 }
 
 int main(int ac, char **av){
