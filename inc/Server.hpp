@@ -34,12 +34,13 @@ private:
     int port;
     std::string password;
     std::vector<struct pollfd> pollFds;
+    
+    
+    public:
+    Server(int _port, const std::string &_password);
     bool isRunning;
-
-
-public:
-    Server::Server(int _port, const std::string &_password);
     static void signalHandler(int signal);
     static Server* instance; 
+    void shutdownServer(int signal);
 };
 
