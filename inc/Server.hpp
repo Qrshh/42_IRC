@@ -16,7 +16,9 @@
 #include <cctype> 
 
 
-
+extern int serverSocket;                  
+extern std::vector<int> clientSockets;   
+extern bool isRunning;                    
 
 class Client;
 
@@ -36,7 +38,7 @@ public:
     ~Server();
 
     void run();
-    void stop();
+    void shutdownServer(int signal = 0);
     void setupSocket();
     void acceptNewClient();
     void handleClientMessage(int index);
