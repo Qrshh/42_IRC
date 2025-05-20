@@ -45,6 +45,13 @@ Server::Server(int _port, const std::string &_password) :
 
     struct sockaddr_in serverAddr;
     serverAddr.sin_family = IPV4;
+        std::string serverIP = "127.0.0.1"; 
+    if (!isValidIPv4(serverIP)) {
+        std::cerr << "Configuration avec adresse IP par défaut" << std::endl;
+        serverAddr.sin_addr.s_addr = INADDR_ANY;
+    } else {
+        inet_pton(AF_INET, serverIP.c_str(), &(serverAddr.sin_addr));
+    }
     serverAddr.sin_addr.s_addr = INADDR_ANY;
     serverAddr.sin_port = htons(port);
 
@@ -87,4 +94,53 @@ void Server::shutdownServer(int signal)
         std::cout << "Socket serveur fermé." << std::endl;
     }
     std::cout << "Serveur arrêté avec le signal " << signal << std::endl;
+}
+
+
+bool Server::isValidIPv4(const std::string& ipAddress)
+{
+    struct sockaddr_in sa;
+    int result = inet_pton(AF_INET, ipAddress.c_str(), &(sa.sin_addr));
+    
+    if (result == 0) {
+        std::cerr << "Adresse IP invalide: " << ipAddress << std::endl;
+        return false;
+    }
+    else if (result < 0) {
+        std::cerr << "Erreur lors de la vérification de l'adresse IP" << std::endl;
+        return false;
+    }
+
+    int dots = 0;
+    int numbers = 0;
+    
+    for (size_t i = 0; i < ipAddress.length(); ++i) {
+        if (ipAddress[i] == '.') {
+            dots++;
+        }
+        else if (isdigit(ipAddress[i])) {
+            numbers++;
+        }
+        else {
+            return false; 
+        }
+    }
+    
+    return (dots == 3 && numbers > 0);
+}
+
+Server::~Server()
+{
+    std::cout << "\n=== Nettoyage du Serveur IRC ===" << std::endl;
+    if (serverSocket != -1) {
+        close(serverSocket);
+        std::cout << "Socket serveur fermé" << std::endl;
+    }
+
+    if (instance == this) {
+        instance = nullptr;
+    }
+
+    std::cout << "Nettoyage terminé" << std::endl;
+    std::cout << "===============================" << std::endl;
 }

@@ -34,6 +34,7 @@ private:
     int port;
     std::string password;
     std::vector<struct pollfd> pollFds;
+    bool isValidIPv4(const std::string& ipAddress);
     
     
     public:
@@ -42,5 +43,8 @@ private:
     static void signalHandler(int signal);
     static Server* instance; 
     void shutdownServer(int signal);
+    bool Server::isValidIPv4(const std::string& ipAddress);
+    ~Server();
+
 };
 
