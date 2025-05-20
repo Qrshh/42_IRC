@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
-#include <vector>
+#include <unistd.h>
+#include <set>
 
 class Client{
 	private:
@@ -19,7 +20,7 @@ class Client{
 
 		bool _isOperator;
 
-		std::vector<Channel*> _channels;
+		std::set<Channel*> _channels;
 
 	public:
 		Client(int socket);
@@ -59,8 +60,8 @@ class Client{
 		const std::string &getServername() const ;
 		void setServername(const std::string &servername);
 
-		const std::string &getRealName() const ;
-		void setRealname(const std::string Realname);
+		const std::string &getRealname() const ;
+		void setRealname(const std::string& Realname);
 
 		bool isOperator() const ;
 		void setOperator(bool status); 
@@ -75,5 +76,5 @@ class Client{
 
 		bool isInChannel(const std::string& channelName) const ;
 
-		const std::vector<Channel*>& getChannels() const ;
+		const std::set<Channel*>& getChannels() const ;
 };
