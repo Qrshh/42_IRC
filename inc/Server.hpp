@@ -14,11 +14,15 @@
 #include <sstream>
 #include <algorithm>
 #include <cctype> 
+#include "Client.hpp"
+#include "Channel.hpp"
 
 
-extern int serverSocket;                  
-extern std::vector<int> clientSockets;   
-extern bool isRunning;                    
+#define IPV4 AF_INET  
+#define GLOB_SOCK_OPT SOL_SOCKET
+#define TCP SOCK_STREAM
+#define CTRL_C SIGINT
+#define CTRL_Z SIGTSTP
 
 class Client;
 
@@ -34,14 +38,8 @@ private:
 
 
 public:
-    Server(int port, const std::string &password);
-    ~Server();
-
-    void run();
-    void shutdownServer(int signal = 0);
-    void setupSocket();
-    void acceptNewClient();
-    void handleClientMessage(int index);
-	void parseCommand(int clientFd, const std::string &input);
+    Server::Server(int _port, const std::string &_password);
+    static void signalHandler(int signal);
+    static Server* instance; 
 };
 
