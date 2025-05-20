@@ -3,6 +3,11 @@
 #include <cstring>
 #include <cerrno>
 #include <csignal>
+#include "Client.hpp"
+#include "Channel.hpp"
+#include "Server.hpp"
+
+Server* g_server = NULL;
 
 void handleSignal(int signal){
 	const char* signalName;
@@ -13,10 +18,9 @@ void handleSignal(int signal){
 	else 
 		signalName = "unknow";
 
-	std::cout << "\nSignal " << signalName << " recceived, closing server ..." << std::endl;
-
-
-	//TODO: Appliquer le signal au serveur
+	std::cout << "\nSignal " << signalName << " received, closing server ..." << std::endl;
+	if(g_server)
+		g_server = NULL;
 }
 
 int main(int ac, char **av){
@@ -36,10 +40,7 @@ int main(int ac, char **av){
 	}
 
 	std::string password = av[2];
-	// std::cout << "Starting IRC server on port " << port << " with password : " << password << std::endl;
-
 	//configuration des signaux :
-
 	struct sigaction sa;
 	//quand un signal est recu, on exec handleSignal
 	sa.sa_handler = handleSignal;
@@ -51,7 +52,14 @@ int main(int ac, char **av){
 		return EXIT_FAILURE;
 	}	
 
-	//TODO: Faire un try catch pour executer le serveur
+	try{
+		Server server(static_cast<int>(port), password);
+		g_server = &server;
+		server.run();
+	} catch (const std::exception &e){
+		std::cerr << "Server error: " << e.what() << std::endl;
+		return EXIT_FAILURE;
+	}
 
 	return EXIT_SUCCESS;
 }

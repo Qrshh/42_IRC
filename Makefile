@@ -1,7 +1,7 @@
 # Répertoires
 SRC_DIR := srcs
 OBJ_DIR := objs
-INC_DIR := includes
+INC_DIR := inc
 
 # Variables de compilation
 CXX := c++
