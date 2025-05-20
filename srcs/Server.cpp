@@ -1,10 +1,4 @@
-// Server.cpp
 #include "Server.hpp"
-#include <unistd.h>
-#include <fcntl.h>
-#include <iostream>
-#include <cstring>
-#include <arpa/inet.h>
 
 Server::Server(int port, const std::string &password)
     : port(port), password(password), isRunning(true) {
@@ -27,7 +21,7 @@ void Server::setupSocket() {
     setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
     sockaddr_in addr;
-	std::memset(&addr, 0, sizeof(addr));  // pour le zero-initialiser manuellement
+	std::memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(port);
@@ -92,4 +86,39 @@ void Server::handleClientMessage(int index) {
     buffer[bytes] = '\0';
     std::cout << "Received from fd " << pollFds[index].fd << ": " << buffer;
 
+
+	std::string input(buffer);
+
+	parseCommand(pollFds[index].fd, input);
+}
+
+void Server::parseCommand(int clientFd, const std::string &input){
+	(void)clientFd;
+	std::istringstream iss(input);
+	std::string command;
+	iss >> command;
+
+	for(size_t i = 0; i < command.length(); i++)
+		command[i] = std::toupper(command[i]);
+
+	if(command == "NICK"){
+		std::string nickname;
+		iss >> nickname;
+		std::cout << "NICK command with nickname: " << nickname << std::endl;
+		//associer tout ca au client
+
+	} else if(command == "USER") {
+		std::string username, hostname, servername, realname;
+		iss >> username >> hostname >> servername;
+		std::getline(iss, realname);
+		if(!realname.empty() && realname[0] == ':')
+			realname = realname.substr(1);
+		std::cout << "USER command with username: " << username << ", realname: " << realname << std::endl;
+	} else if (command == "PASS") {
+		std::string pass;
+		iss >> pass;
+		std::cout << "PASS command with password: " << pass << std::endl;
+	} else {
+		std::cout << "Unknow command" << std::endl;
+	}
 }

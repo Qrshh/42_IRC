@@ -7,6 +7,8 @@
 #include "Channel.hpp"
 #include "Server.hpp"
 
+Server* g_server = NULL;
+
 void handleSignal(int signal){
 	const char* signalName;
 	if(signal == SIGINT)
@@ -19,7 +21,8 @@ void handleSignal(int signal){
 	std::cout << "\nSignal " << signalName << " received, closing server ..." << std::endl;
 
 
-	//TODO: Appliquer le signal au serveur
+	if(g_server)
+		g_server->stop();
 
 }
 
@@ -40,8 +43,6 @@ int main(int ac, char **av){
 	}
 
 	std::string password = av[2];
-	// std::cout << "Starting IRC server on port " << port << " with password : " << password << std::endl;
-
 	//configuration des signaux :
 	struct sigaction sa;
 	//quand un signal est recu, on exec handleSignal
@@ -54,10 +55,9 @@ int main(int ac, char **av){
 		return EXIT_FAILURE;
 	}	
 
-	//TODO: Faire un try catch pour executer le serveur
-
 	try{
 		Server server(static_cast<int>(port), password);
+		g_server = &server;
 		server.run();
 	} catch (const std::exception &e){
 		std::cerr << "Server error: " << e.what() << std::endl;

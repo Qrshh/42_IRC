@@ -6,7 +6,15 @@
 #include <poll.h>
 #include "Client.hpp"
 #include "Channel.hpp"
-#include <netinet/in.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <iostream>
+#include <cstring>
+#include <arpa/inet.h>
+#include <sstream>
+#include <algorithm>
+#include <cctype> 
+
 
 
 
@@ -29,10 +37,9 @@ public:
 
     void run();
     void stop();
-
-private:
     void setupSocket();
     void acceptNewClient();
     void handleClientMessage(int index);
+	void parseCommand(int clientFd, const std::string &input);
 };
 
