@@ -2,6 +2,9 @@
 #include <iostream>
 #include <unistd.h>
 #include <set>
+#include "Channel.hpp"
+
+class Channel;
 
 class Client{
 	private:

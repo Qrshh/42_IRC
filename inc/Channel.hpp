@@ -1,51 +1,29 @@
 #pragma once
 #include <vector>
-#include "Client.hpp"
+#include <string>
+#include <algorithm> // pour std::find et std::remove
 
+class Client; // forward declaration, suffit pour pointeurs
 
-class Client;
+class Channel {
+private:
+    std::string channelName;
+    std::string channelTopic;
+    std::vector<Client*> channelMembers;
+    std::vector<Client*> channelOperators;
 
-class Channel{
-	private:
-		std::string channelName;
-		std::string channelTopic;
-		std::vector<Client*> channelMembers;
-		std::vector<Client*> channelOperators;
+public:
+    Channel(const std::string &name);
 
-	public:
-		Channel(const std::string &name) : channelName(name) {}
+    const std::string &getChannelName() const;
+    const std::string &getChannelTopic() const;
+    void setChannelTopic(const std::string &newTopic);
 
-		const std::string &getChannelName() const {return channelName; }
-		const std::string &getChannelTopic() const {return channelTopic; }
-		void setChannelTopic(const std::string &newTopic) {channelTopic = newTopic; }
+    void addMember(Client* client);
+    void removeMember(Client* client);
+    void addOperator(Client* client);
+    void removeOperator(Client* client);
+    bool isOperator(Client* client) const;
 
-		void addMember(Client* client) {
-			if (std::find(channelMembers.begin(), channelMembers.end(), client) == channelMembers.end())
-				channelMembers.push_back(client);
-		}
-
-		void removeMember(Client* client) {
-			channelMembers.erase(std::remove(channelMembers.begin(), channelMembers.end(), client), channelMembers.end());
-		}
-
-		void addOperator(Client* client) {
-			if (std::find(channelOperators.begin(), channelOperators.end(), client) == channelOperators.end())
-				channelOperators.push_back(client);
-		}
-
-		void removeOperator(Client* client) {
-			channelOperators.erase(std::remove(channelOperators.begin(), channelOperators.end(), client), channelOperators.end());
-		}
-
-		bool isOperator(Client* client) const {
-			return std::find(channelOperators.begin(), channelOperators.end(), client) != channelOperators.end();
-		}
-
-		void leaveChannel(Client* client) {
-			removeMember(client);
-			removeOperator(client);
-			client->removeChannel(this); // À implémenter côté Client
-		}
-
-
+    void leaveChannel(Client* client); // déclaration seulement, pas d'implémentation ici
 };

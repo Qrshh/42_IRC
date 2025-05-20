@@ -1,4 +1,3 @@
-#pragma once
 #include "Client.hpp"
 #include "Channel.hpp"
 
@@ -8,7 +7,7 @@ Client::Client(int socket) : _socket(socket), _registered(false), _sentPass(fals
 Client::~Client(){
 	close(_socket);
 	for(std::set<Channel*>::iterator it = _channels.begin(); it != _channels.end();++it){
-		(*it)->removeClient(this); //faire une fonction removeClient depuis la classe Channel
+		(*it)->removeMember(this);
 	}
 	_channels.clear();
 }
