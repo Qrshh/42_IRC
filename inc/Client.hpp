@@ -1,47 +1,80 @@
 #pragma once
 #include <iostream>
-#include <vector>
-
-//pour pouvor faire un vector de channel pour le client 
-//faire la classe channel donc
-class Channel;
+#include <unistd.h>
+#include <set>
 
 class Client{
-    private:
-        int Fd;
-        std::string nickName;
-        std::string userName;
-        std::string hostName;
-        std::string serverName;
-        std::string realName;
-        bool connected;
-        std::vector<Channel*> channels;
+	private:
+		int _socket;
 
-    public:
-        Client() {connected = false; }
+		std::string _nickname;
+		std::string _username;
+		std::string _hostname;
+		std::string _servername;
+		std::string _realname;
 
-        void setFd(int fd) {Fd = fd; }
-        void setUserName(const std::string &user) {userName = user; }
-        void setHostName(const std::string &host) {hostName = host; }
-        void setServerName(const std::string &server) {serverName = server; }
-        void setRealName(const std::string &real) {realName = real; }
-        void setNickName(const std::string &nick) {nickName = nick; }
-        void setConnected(bool status) {connected = status; }
+		bool _registered;
+		bool _sentPass;
+		bool _sentNick;
+		bool _sentUser;
 
-        bool isConnected() const {return connected; }
+		bool _isOperator;
 
-        const std::vector<Channel*>& getChannels() const {return channels; }
+		std::set<Channel*> _channels;
 
-        void addChannel(Channel* channel) {channels.push_back(channel); }
+	public:
+		Client(int socket);
+		~Client();
 
-        int getFd() const { return Fd; }
-        std::string getNickName() const {return nickName; }
-        std::string getUserName() const {return userName; }
-        std::string getHostName() const {return hostName; }
-
-		void removeChannel(Channel* channel) {
-			channels.erase(std::remove(channels.begin(), channels.end(), channel), channels.end());
-		}
+		int getSocket() const ;
 
 
+		/* ENREGISTREMENT */
+
+		bool isRegistered() const ;
+		void setRegistered(bool status) ;
+
+		//savoir si le client a utiliser la commande PASS
+		bool hasSentPass() const ;
+		void setSentPass(bool status) ;
+
+		//savoir si le client a utilise la commande NICK
+		bool hasSentNick() const ;
+		void setSentNick(bool status) ;
+
+		//savoir si le client a utilise la commande USER
+		bool hasSentUser() const ;
+		void setSentUser(bool status) ;
+
+
+		/* IDENTITE */
+		const std::string &getNickname() const ;
+		void setNickname(const std::string &nickname);
+
+		const std::string &getHostname() const ;
+		void setHostname(const std::string &hostname);
+
+		const std::string& getUsername() const ;
+		void setUsername(const std::string &username);
+
+		const std::string &getServername() const ;
+		void setServername(const std::string &servername);
+
+		const std::string &getRealname() const ;
+		void setRealname(const std::string& Realname);
+
+		bool isOperator() const ;
+		void setOperator(bool status); 
+
+
+
+		/*Gestion des channels */
+
+		void joinChannel(Channel* channel);
+
+		void leaveChannel(Channel* channel);
+
+		bool isInChannel(const std::string& channelName) const ;
+
+		const std::set<Channel*>& getChannels() const ;
 };
