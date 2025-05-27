@@ -15,6 +15,26 @@ void Channel::setChannelTopic(const std::string &newTopic) {
     channelTopic = newTopic;
 }
 
+void Channel::channelMessage(const std::vector<std::string>& params, Client *client){
+	std::string message;
+
+	for(size_t i = 0; i < params.size(); i++){
+		message += params[i];
+		if(i != params.size() - 1) //ajouter un espace sauf pour le dernier element
+			message += " ";
+	}
+
+	for(size_t i = 0; i < channelMembers.size(); i++){
+		if(channelMembers[i]->getSocket() != client->getSocket()) //celui qui envoie le message ne le recoit pas (logique)
+		{
+			//preparation du nessage facon irssi
+			std::string ircMessage = ":" + client->getNickname() + "!~" + client->getUsername() + "@localhost PRIVMSG " + this->getChannelName() + " : " + message + "\r\n";
+			//envoyer le message formate au client
+			send(channelMembers[i]->getSocket(), ircMessage.c_str(), ircMessage.length(), 0);
+		}
+	}
+}
+
 void Channel::addMember(Client* client) {
     if (std::find(channelMembers.begin(), channelMembers.end(), client) == channelMembers.end())
         channelMembers.push_back(client);

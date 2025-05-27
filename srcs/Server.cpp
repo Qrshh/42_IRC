@@ -123,31 +123,94 @@ void Server::splitCommand(Client *client, std::string cmds)
     	}
 }
 
-void Server::handleCommand(Client *client, const std::string &command, std::vector<std::string>args) {
-	std::cout << "Received command from " << client->getSocket() << ": " << command << std::endl;
+void Server::handleCommand(Client *client, const std::string &command, std::vector<std::string> args) {
+    std::cout << "Received command from " << client->getSocket() << ": " << command << std::endl;
 
-	if(command == "CAP")
-		return ;
-	else if(command == "PASS"){
-		if(client->isRegistered())
-		{
-			sendMessage(client->getSocket(), "YOU ARE ALREADY REGISTERED !");
-			return ;
-		}
-		if(args.empty())
-		{
-			sendMessage(client->getSocket(), "YOU HAVE TO GIVE US WHAT YOU WANT !");
-			return ;
-		}
-		this->registerPassword(client, args[0]);
-	}
-	else if (command == "QUIT")
-	{
-		handleQuit(client);
-		return ;
-	}
+    // Autoriser CAP sans inscription, c'est optionnel
+    if (command == "CAP")
+        return;
 
+    // Si client non enregistré, n'accepter que PASS, NICK, USER
+    if (!client->isRegistered()) {
+        if (command != "PASS" && command != "NICK" && command != "USER") {
+            sendMessage(client->getSocket(), "ERROR :You have not registered\r\n");
+            return;
+        }
+    }
+
+    if (command == "PASS") {
+        if(client->isRegistered()) {
+            sendMessage(client->getSocket(), ERR_ALREADYREGISTERED(client->getNickname()));
+            return;
+        }
+        if(args.empty()) {
+            sendMessage(client->getSocket(), ERR_NOTENOUGHPARAM(client->getNickname()));
+            return;
+        }
+        this->registerPassword(client, args[0]);
+    }
+    else if (command == "NICK") {
+        if (args.empty()) {
+            sendMessage(client->getSocket(), ERR_NOTENOUGHPARAM(client->getNickname()));
+            return;
+        }
+        handleNick(client, args[0]);
+        tryRegisterClient(client);
+        return;
+    }
+    else if (command == "USER") {
+        if (args.size() < 4) {
+            sendMessage(client->getSocket(), ERR_NOTENOUGHPARAM(client->getNickname()));
+            return;
+        }
+        handleUser(client, args);
+        tryRegisterClient(client);
+        return;
+    }
+    else if (command == "QUIT") {
+        handleQuit(client);
+        return;
+    }
+    else if (command == "PRIVMSG") {
+        if(args.empty()) {
+            sendMessage(client->getSocket(), ERR_NOTENOUGHPARAM(client->getNickname()));
+            return;
+        }
+        if(args[0][0] == '#'){
+            handlePrivMessage(client, args);
+        }
+    }
+    else if (command == "JOIN") {
+        if (args.empty()) {
+            sendMessage(client->getSocket(), ERR_NOTENOUGHPARAM(client->getNickname()));
+            return;
+        }
+
+        std::string channelName = args[0];
+        Channel *channel = NULL;
+        for(size_t i = 0; i < _channels.size(); i++){
+            if(_channels[i].getChannelName() == channelName){
+                channel = &_channels[i];
+                break;
+            }
+        }
+        if(!channel){
+            _channels.push_back(Channel(channelName));
+            channel = &_channels.back();
+        }
+        channel->addMember(client);
+
+        std::string joinMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@" + client->getHostname() + " JOIN :" + channelName + "\r\n";
+        sendMessage(client->getSocket(), joinMsg);
+
+        std::string nameList = ":" + std::string("localhost") + " 353 " + client->getNickname() + " = " + channelName + " :" + client->getNickname() + "\r\n";
+        sendMessage(client->getSocket(), nameList);
+
+        std::string endNames = ":" + std::string("localhost") + " 366 " + client->getNickname() + " " + channelName + " :End of /NAMES list.\r\n";
+        sendMessage(client->getSocket(), endNames);
+    }
 }
+
 
 void Server::registerPassword(Client* client, const std::string buff)
 {
@@ -160,8 +223,77 @@ void Server::registerPassword(Client* client, const std::string buff)
 		return ;
 	}
 	client->setRegistered(true);
+	client->setSentPass(true);
+
+	tryRegisterClient(client);
 	return ;
 }
+
+void  Server::handleNick(Client *client, const std::string &newNick)
+{
+	if(newNick.empty() || newNick.length() > 9)
+	{
+		sendMessage(client->getSocket(), ERR_ERRONEUSNICK(newNick));
+		return ;
+	}
+
+	for (std::map<int, Client*>::iterator it = _clients.begin(); it != _clients.end(); ++it)
+	{
+		if(it->second->getNickname() == newNick)
+		{
+			sendMessage(client->getSocket(), ERR_NICKINUSE(newNick));
+			return ;
+		}
+	}
+
+	std::string oldNick = client->getNickname();
+	client->setNickname(newNick);
+
+	sendMessage(client->getSocket(), RPL_NICKCHANGE(oldNick, newNick));
+	client->setSentNick(true);
+	return ;
+}
+
+void Server::handleUser(Client *client, const std::vector<std::string> &params){
+	if(params.size() < 4){
+		sendMessage(client->getSocket(), ERR_NOTENOUGHPARAM(client->getNickname()));
+		return ;
+	}
+	client->setUsername(params[0]);
+	client->setHostname(params[2]);
+	client->setServername(params[1]);
+	client->setRealname(params[3]);
+
+	client->setSentUser(true);
+}
+
+void Server::handlePrivMessage(Client *client, const std::vector<std::string>& params){
+	for(size_t i = 0; i < _channels.size(); i++)
+	{
+		std::cout << "-------------entered PRIV MSG \n";
+		if(_channels[i].getChannelName() == params[0])
+		{
+			_channels[i].channelMessage(params, client);
+			return ;
+		}
+	}
+}
+
+void Server::tryRegisterClient(Client* client) {
+	// si le serveur nécessite un PASS
+	if (!_password.empty() && !client->hasSentPass())
+		return;
+
+	if (!client->hasSentNick() || !client->hasSentUser())
+		return;
+
+	if (!client->isRegistered()) {
+		client->setRegistered(true);
+		// Envoie un message de bienvenue
+		sendMessage(client->getSocket(), RPL_CONNECTED(client->getNickname(), client->getUsername(), client->getHostname()));
+	}
+}
+
 
 void Server::handleQuit(Client *client)
 {

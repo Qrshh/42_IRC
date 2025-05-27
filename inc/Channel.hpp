@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include <algorithm> // pour std::find et std::remove
+# include <sys/socket.h>
 
 class Client; // forward declaration, suffit pour pointeurs
 
@@ -18,6 +19,8 @@ public:
     const std::string &getChannelName() const;
     const std::string &getChannelTopic() const;
     void setChannelTopic(const std::string &newTopic);
+
+	void channelMessage(const std::vector<std::string>& params, Client *client);
 
     void addMember(Client* client);
     void removeMember(Client* client);

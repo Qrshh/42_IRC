@@ -14,6 +14,7 @@
 # include <sstream>
 # include "Client.hpp"
 # include "Channel.hpp"
+# include "defineMessage.hpp"
 
 # define BUFFER_SIZE 512
 
@@ -22,7 +23,7 @@ private:
 	int _serverFd;
 	std::vector<struct pollfd> _pollFds;
 	std::map<int, Client*> _clients;
-	std::map<std::string, Channel*> _channels;
+	std::vector<Channel> _channels;
 	std::string _password;
 
 public:
@@ -38,8 +39,12 @@ public:
 	void sendMessage(int fd, const std::string& message);
 	
 	void registerPassword(Client *client, const std::string buff);
+	void tryRegisterClient(Client* client);
 
 	void handleQuit(Client *client);
+	void handlePrivMessage(Client *client, const std::vector<std::string>& params);
+	void handleNick(Client *client, const std::string& newNick);
+	void handleUser(Client *client, const std::vector<std::string> &params);
 };
 
 #endif
