@@ -116,3 +116,15 @@ bool Client::isInChannel(const std::string& channelName) const {
 const std::set<Channel*>& Client::getChannels() const {
 	return _channels;
 }
+
+std::string& Client::getRecvBuffer(){
+    return _recvBuffer;
+}
+
+void Client::clearRecvBuffer() {
+    _recvBuffer.clear();
+}
+
+void Client::eraseRecvBuffer(size_t pos) {
+    _recvBuffer.erase(0, pos);
+}
