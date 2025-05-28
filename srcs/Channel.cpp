@@ -28,9 +28,8 @@ void Channel::channelMessage(const std::vector<std::string>& params, Client *cli
 		if(channelMembers[i]->getSocket() != client->getSocket()) //celui qui envoie le message ne le recoit pas (logique)
 		{
 			//preparation du nessage facon irssi
-			std::string ircMessage = ":" + client->getNickname() + "!~" + client->getUsername() + "@localhost PRIVMSG " + this->getChannelName() + " :" + message + "\r\n";
+			std::string ircMessage = ":" + client->getNickname() + "!~" + client->getUsername() + "@localhost PRIVMSG " + this->getChannelName() + " " + message + "\r\n";
 			//envoyer le message formate au client
-			std::cout  << ircMessage << std::endl;
 			send(channelMembers[i]->getSocket(), ircMessage.c_str(), ircMessage.length(), 0);
 		}
 	}

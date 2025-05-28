@@ -42,8 +42,11 @@ public:
 	void registerPassword(Client *client, const std::string buff);
 	void tryRegisterClient(Client* client);
 
+	std::string joinParams(const std::vector<std::string>& params);
+
 	void handleQuit(Client *client);
-	void handlePrivMessage(Client *client, const std::vector<std::string>& params);
+	void handlePrivMessageChannel(Client *client, const std::vector<std::string>& params);
+	void handlePrivMessageUser(Client *client, const std::string& target, const std::string& message);
 	void handleNick(Client *client, const std::string& newNick);
 	void handleUser(Client *client, const std::vector<std::string> &params);
 };

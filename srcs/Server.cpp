@@ -92,27 +92,6 @@ void Server::handleClientInput(int fd) {
 	}
 }
 
-bool isKnownCommand(const std::string &cmd)
-{
-    static std::vector<std::string> knownCommands;
-    if (knownCommands.empty()) {
-        knownCommands.push_back("NICK");
-        knownCommands.push_back("USER");
-        knownCommands.push_back("PASS");
-        knownCommands.push_back("JOIN");
-        knownCommands.push_back("PRIVMSG");
-        knownCommands.push_back("QUIT");
-        knownCommands.push_back("CAP");
-    }
-
-    for (size_t i = 0; i < knownCommands.size(); ++i) {
-        if (knownCommands[i] == cmd)
-            return true;
-    }
-    return false;
-}
-
-
 void Server::splitCommand(Client *client, std::string cmds)
 {
     // Enlever les caractères \r et \n à la fin de la chaîne
@@ -159,7 +138,6 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
             return;
         }
     }
-
     if (command == "PASS") {
         if(client->isRegistered()) {
             sendMessage(client->getSocket(), ERR_ALREADYREGISTERED(client->getNickname()));
@@ -199,8 +177,13 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
             return;
         }
         if(args[0][0] == '#'){
-            handlePrivMessage(client, args);
+            handlePrivMessageChannel(client, args);
         }
+		else
+		{
+			std::string message = joinParams(args);
+			handlePrivMessageUser(client, args[0], message);
+		}
     }
     else if (command == "JOIN") {
 		if (!client->isRegistered()){
@@ -236,25 +219,7 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
 		sendMessage(client->getSocket(), endNames);
 		return ;
 	}
-	if (!isKnownCommand(command)) {
-		std::string currentChannel = client->getCurrentChannel();
-		if (!currentChannel.empty()) {
-			// Recréer args en concaténant command + args pour avoir le message complet
-			std::string message = command;
-			for (size_t i = 0; i < args.size(); ++i)
-				message += " " + args[i];
-			std::vector<std::string> privmsgArgs;
-			privmsgArgs.push_back(currentChannel);
-			privmsgArgs.push_back(":" + message);  // Le message commence par ":"
-			handlePrivMessage(client, privmsgArgs);
-		} else {
-			// Pas de channel courant, on envoie une erreur
-			sendMessage(client->getSocket(), "ERROR :You are not in any channel\r\n");
-		}
-	return;
-	}
 }
-
 
 void Server::registerPassword(Client* client, const std::string buff)
 {
@@ -318,7 +283,7 @@ void Server::handleUser(Client *client, const std::vector<std::string> &params){
 	client->setSentUser(true);
 }
 
-void Server::handlePrivMessage(Client *client, const std::vector<std::string>& params){
+void Server::handlePrivMessageChannel(Client *client, const std::vector<std::string>& params){
 	for(size_t i = 0; i < _channels.size(); i++)
 	{
 		std::cout << "-------------entered PRIV MSG \n";
@@ -328,6 +293,45 @@ void Server::handlePrivMessage(Client *client, const std::vector<std::string>& p
 			return ;
 		}
 	}
+}
+
+void Server::handlePrivMessageUser(Client *client, const std::string& target, const std::string& message){
+    if(target.empty())
+    {
+        sendMessage(client->getSocket(), ERR_NORECIPIENT(client->getNickname(), "(PRIVMSG)"));
+        return ;
+    }
+    if(message.empty())
+    {
+        sendMessage(client->getSocket(), ERR_NOTEXTTOSEND(client->getNickname()));
+        return ;
+    }
+
+    bool targetFound = false;
+    for(std::map<int, Client*>::iterator it = _clients.begin(); it != _clients.end(); ++it){
+        std::cout << "Searching ... :" << it->first << "\n";
+        if(it->second->getNickname() == target)
+        {
+            std::cout << "Found\n";
+            //Format du message
+            std::string formattedMsg = ":" + client->getNickname() + "!" 
+                + client->getUsername() + "@" 
+                + client->getHostname() 
+                + " PRIVMSG " + target 
+                + " " + message + "\r\n";
+
+            std::cout << formattedMsg << "\n";
+            send(it->second->getSocket(), formattedMsg.c_str(), formattedMsg.length(), 0);
+            targetFound = true;
+            break ;
+        }
+    }
+    if(!targetFound)
+    {
+        sendMessage(client->getSocket(), ERR_NOSUCHNICK(target, client->getNickname()));
+        return ;
+    }
+
 }
 
 void Server::tryRegisterClient(Client* client) {
@@ -343,11 +347,21 @@ void Server::tryRegisterClient(Client* client) {
 	}
 }
 
-
 void Server::handleQuit(Client *client)
 {
 	std::cout << "Client <" << client->getSocket() << "> Disconnected" << std::endl;
 	close(client->getSocket());
 	std::cout << "Quit Success "  << std::endl;
 	return;
+}
+
+std::string Server::joinParams(const std::vector<std::string>& params)
+{
+	std::string joinedParams;
+	for(size_t i = 1; i < params.size(); i++){
+		joinedParams += params[i];
+		if(i != params.size() - 1)
+			joinedParams += " ";
+	}
+	return joinedParams;
 }

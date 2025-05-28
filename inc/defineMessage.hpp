@@ -30,12 +30,12 @@
 /*******************************/
 
 /* 400s - Client Errors */
-// #define ERR_NOSUCHNICK(channelname, name) (": 401 #" + channelname + " " + name + " :No such nick/channel" + CRLF)
+#define ERR_NOSUCHNICK(channelname, name) (": 401 #" + channelname + " " + name + " :No such nick/channel" + CRLF)
 // #define ERR_NOSUCHSERVER(nickname, server) (": 402 " + nickname + " " + server + " :No such server" + CRLF)
 // #define ERR_CHANNELNOTFOUND(nickname, channelname) (": 403 " + nickname + " " + channelname + " :No such channel" + CRLF)
 // #define ERR_CANNOTSENDTOCHAN(channel) (": 404 #" + channel + " :Cannot send to channel" + CRLF)
-// #define ERR_NORECIPIENT(nickname, command) (": 411 " + nickname + " :No recipient given (" + command + ")" + CRLF)
-// #define ERR_NOTEXTTOSEND(nickname) (": 412 " + nickname + " :No text to send" + CRLF)
+#define ERR_NORECIPIENT(nickname, command) (": 411 " + nickname + " :No recipient given (" + command + ")" + CRLF)
+#define ERR_NOTEXTTOSEND(nickname) (": 412 " + nickname + " :No text to send" + CRLF)
 // #define ERR_CMDNOTFOUND(nickname, command) (": 421 " + nickname + " " + command + " :Unknown command" + CRLF)
 // #define ERR_NONICKNAME(nickname) (": 431 " + nickname + " :No nickname given" + CRLF)
 #define ERR_ERRONEUSNICK(nickname) (": 432 " + nickname + " :Erroneous nickname" + CRLF)
