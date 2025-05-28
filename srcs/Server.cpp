@@ -219,7 +219,43 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
 		sendMessage(client->getSocket(), endNames);
 		return ;
 	}
+    else {
+        // Ici on considère que la "commande" non reconnue est un message à envoyer au channel courant
+
+        std::string channelName = client->getCurrentChannel();
+        if (!channelName.empty()) {
+            // Reconstruire le message complet à partir de command + args
+            std::string fullMessage = command;
+            for (size_t i = 0; i < args.size(); ++i) {
+                fullMessage += " " + args[i];
+            }
+
+            // Construire la ligne PRIVMSG à envoyer au channel
+            std::string msg = ":" + client->getNickname() + " PRIVMSG " + channelName + " :" + fullMessage + "\r\n";
+
+            // Fonction pour envoyer à tous les membres du channel
+            sendMessageToChannel(channelName, msg);
+        } else {
+            // Pas de channel courant : on informe le client
+            std::string err = ":" + std::string("localhost") + " NOTICE " + client->getNickname() + " :Tu n'es dans aucun channel.\r\n";
+            sendMessage(client->getSocket(), err);
+        }
+	}
 }
+
+void Server::sendMessageToChannel(const std::string &channelName, const std::string &message) {
+    for (size_t i = 0; i < _channels.size(); ++i) {
+        if (_channels[i].getChannelName() == channelName) {
+            const std::vector<Client*> &members = _channels[i].getMembers();
+            for (size_t j = 0; j < members.size(); ++j) {
+                sendMessage(members[j]->getSocket(), message);
+            }
+            break;
+        }
+    }
+}
+
+
 
 void Server::registerPassword(Client* client, const std::string buff)
 {

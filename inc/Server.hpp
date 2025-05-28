@@ -38,6 +38,7 @@ public:
 	void handleCommand(Client *client, const std::string &command, std::vector<std::string>args);
 
 	void sendMessage(int fd, const std::string& message);
+	void sendMessageToChannel(const std::string &channelName, const std::string &message);
 	
 	void registerPassword(Client *client, const std::string buff);
 	void tryRegisterClient(Client* client);

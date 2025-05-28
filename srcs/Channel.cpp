@@ -35,6 +35,8 @@ void Channel::channelMessage(const std::vector<std::string>& params, Client *cli
 	}
 }
 
+
+
 void Channel::addMember(Client* client) {
     if (std::find(channelMembers.begin(), channelMembers.end(), client) == channelMembers.end())
         channelMembers.push_back(client);
