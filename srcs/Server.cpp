@@ -36,7 +36,7 @@ Server::~Server() {
 void Server::run() {
 	while (true) {
 		if (poll(&_pollFds[0], _pollFds.size(), -1) < 0) {
-			perror("poll");
+			std::cerr << "Poll" << std::endl;
 			break;
 		}
 
@@ -87,8 +87,29 @@ void Server::handleClientInput(int fd) {
 	while ((pos = client->getRecvBuffer().find("\r\n")) != std::string::npos) {
 		std::string command = client->getRecvBuffer().substr(0, pos);
 		client->eraseRecvBuffer(pos + 2);
+		std::cout << "Received raw input: [" << data << "]" << std::endl;
 		splitCommand(client, command);
 	}
+}
+
+bool isKnownCommand(const std::string &cmd)
+{
+    static std::vector<std::string> knownCommands;
+    if (knownCommands.empty()) {
+        knownCommands.push_back("NICK");
+        knownCommands.push_back("USER");
+        knownCommands.push_back("PASS");
+        knownCommands.push_back("JOIN");
+        knownCommands.push_back("PRIVMSG");
+        knownCommands.push_back("QUIT");
+        knownCommands.push_back("CAP");
+    }
+
+    for (size_t i = 0; i < knownCommands.size(); ++i) {
+        if (knownCommands[i] == cmd)
+            return true;
+    }
+    return false;
 }
 
 
@@ -103,9 +124,9 @@ void Server::splitCommand(Client *client, std::string cmds)
     std::string line;
 
 	while (std::getline(stream, line))  // Lire ligne par ligne
-    	{
-        	std::string command;
-        	std::vector<std::string> args;
+	{
+		std::string command;
+		std::vector<std::string> args;
 		// Enlever les espaces supplémentaires en début et fin de ligne
 		line.erase(0, line.find_first_not_of(" \t"));
 		line.erase(line.find_last_not_of(" \t") + 1);
@@ -118,15 +139,16 @@ void Server::splitCommand(Client *client, std::string cmds)
 		std::string arg;
 		while (lineStream >> arg)
 		args.push_back(arg);  // Extraire tous les arguments après la commande
-        	// Appeler la méthode qui gère la commande
-        	handleCommand(client, command, args);
-    	}
+		// Appeler la méthode qui gère la commande
+		handleCommand(client, command, args);
+	}
 }
 
 void Server::handleCommand(Client *client, const std::string &command, std::vector<std::string> args) {
-    std::cout << "Received command from " << client->getSocket() << ": " << command << std::endl;
+    std::cout << "Command: [" << command << "]" << std::endl;
+	for (size_t i = 0; i < args.size(); ++i)
+		std::cout << "Arg[" << i << "]: " << args[i] << std::endl;
 
-    // Autoriser CAP sans inscription, c'est optionnel
     if (command == "CAP")
         return;
 
@@ -181,34 +203,56 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
         }
     }
     else if (command == "JOIN") {
+		if (!client->isRegistered()){
+			sendMessage(client->getSocket(), ERR_NOTREGISTERED(client->getNickname()));
+			return ;
+		}
         if (args.empty()) {
             sendMessage(client->getSocket(), ERR_NOTENOUGHPARAM(client->getNickname()));
             return;
         }
+		std::string channelName = args[0];
+		Channel *channel = NULL;
+		for(size_t i = 0; i < _channels.size(); i++){
+			if(_channels[i].getChannelName() == channelName){
+				channel = &_channels[i];
+				break;
+			}
+		}
+		if(!channel){
+			_channels.push_back(Channel(channelName));
+			channel = &_channels.back();
+		}
+		channel->addMember(client);
+		client->setCurrentChannel(channelName);
 
-        std::string channelName = args[0];
-        Channel *channel = NULL;
-        for(size_t i = 0; i < _channels.size(); i++){
-            if(_channels[i].getChannelName() == channelName){
-                channel = &_channels[i];
-                break;
-            }
-        }
-        if(!channel){
-            _channels.push_back(Channel(channelName));
-            channel = &_channels.back();
-        }
-        channel->addMember(client);
+		std::string joinMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@" + client->getHostname() + " JOIN :" + channelName + "\r\n";
+		sendMessage(client->getSocket(), joinMsg);
 
-        std::string joinMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@" + client->getHostname() + " JOIN :" + channelName + "\r\n";
-        sendMessage(client->getSocket(), joinMsg);
+		std::string nameList = ":" + std::string("localhost") + " 353 " + client->getNickname() + " = " + channelName + " :" + client->getNickname() + "\r\n";
+		sendMessage(client->getSocket(), nameList);
 
-        std::string nameList = ":" + std::string("localhost") + " 353 " + client->getNickname() + " = " + channelName + " :" + client->getNickname() + "\r\n";
-        sendMessage(client->getSocket(), nameList);
-
-        std::string endNames = ":" + std::string("localhost") + " 366 " + client->getNickname() + " " + channelName + " :End of /NAMES list.\r\n";
-        sendMessage(client->getSocket(), endNames);
-    }
+		std::string endNames = ":" + std::string("localhost") + " 366 " + client->getNickname() + " " + channelName + " :End of /NAMES list.\r\n";
+		sendMessage(client->getSocket(), endNames);
+		return ;
+	}
+	if (!isKnownCommand(command)) {
+		std::string currentChannel = client->getCurrentChannel();
+		if (!currentChannel.empty()) {
+			// Recréer args en concaténant command + args pour avoir le message complet
+			std::string message = command;
+			for (size_t i = 0; i < args.size(); ++i)
+				message += " " + args[i];
+			std::vector<std::string> privmsgArgs;
+			privmsgArgs.push_back(currentChannel);
+			privmsgArgs.push_back(":" + message);  // Le message commence par ":"
+			handlePrivMessage(client, privmsgArgs);
+		} else {
+			// Pas de channel courant, on envoie une erreur
+			sendMessage(client->getSocket(), "ERROR :You are not in any channel\r\n");
+		}
+	return;
+	}
 }
 
 
@@ -222,9 +266,7 @@ void Server::registerPassword(Client* client, const std::string buff)
 		delete client;
 		return ;
 	}
-	client->setRegistered(true);
 	client->setSentPass(true);
-
 	tryRegisterClient(client);
 	return ;
 }
@@ -262,7 +304,16 @@ void Server::handleUser(Client *client, const std::vector<std::string> &params){
 	client->setUsername(params[0]);
 	client->setHostname(params[2]);
 	client->setServername(params[1]);
-	client->setRealname(params[3]);
+	std::string realname;
+
+	for(size_t i = 3; i < params.size(); i++){
+		if(i > 3)
+			realname += " ";
+		realname += params[i];
+	}
+	if(!realname.empty() && realname[0] == ':')
+	 realname = realname.substr(1);
+	client->setRealname(realname);
 
 	client->setSentUser(true);
 }
@@ -280,7 +331,6 @@ void Server::handlePrivMessage(Client *client, const std::vector<std::string>& p
 }
 
 void Server::tryRegisterClient(Client* client) {
-	// si le serveur nécessite un PASS
 	if (!_password.empty() && !client->hasSentPass())
 		return;
 
@@ -289,7 +339,6 @@ void Server::tryRegisterClient(Client* client) {
 
 	if (!client->isRegistered()) {
 		client->setRegistered(true);
-		// Envoie un message de bienvenue
 		sendMessage(client->getSocket(), RPL_CONNECTED(client->getNickname(), client->getUsername(), client->getHostname()));
 	}
 }

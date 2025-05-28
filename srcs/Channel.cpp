@@ -1,5 +1,5 @@
 #include "Channel.hpp"
-#include "Client.hpp" // inclure la vraie définition
+#include "Client.hpp"
 
 Channel::Channel(const std::string &name) : channelName(name) {}
 
@@ -18,7 +18,7 @@ void Channel::setChannelTopic(const std::string &newTopic) {
 void Channel::channelMessage(const std::vector<std::string>& params, Client *client){
 	std::string message;
 
-	for(size_t i = 0; i < params.size(); i++){
+	for(size_t i = 1; i < params.size(); i++){
 		message += params[i];
 		if(i != params.size() - 1) //ajouter un espace sauf pour le dernier element
 			message += " ";
@@ -28,8 +28,9 @@ void Channel::channelMessage(const std::vector<std::string>& params, Client *cli
 		if(channelMembers[i]->getSocket() != client->getSocket()) //celui qui envoie le message ne le recoit pas (logique)
 		{
 			//preparation du nessage facon irssi
-			std::string ircMessage = ":" + client->getNickname() + "!~" + client->getUsername() + "@localhost PRIVMSG " + this->getChannelName() + " : " + message + "\r\n";
+			std::string ircMessage = ":" + client->getNickname() + "!~" + client->getUsername() + "@localhost PRIVMSG " + this->getChannelName() + " :" + message + "\r\n";
 			//envoyer le message formate au client
+			std::cout  << ircMessage << std::endl;
 			send(channelMembers[i]->getSocket(), ircMessage.c_str(), ircMessage.length(), 0);
 		}
 	}

@@ -16,6 +16,8 @@ class Client{
 		std::string _servername;
 		std::string _realname;
 
+		std::string _currentChannel;
+
 		std::string _recvBuffer;
 
 		bool _registered;
@@ -67,6 +69,9 @@ class Client{
 
 		const std::string &getRealname() const ;
 		void setRealname(const std::string& Realname);
+
+		const std::string getCurrentChannel() const {return _currentChannel;}
+		void setCurrentChannel(const std::string& channel) {_currentChannel = channel;}
 
 		bool isOperator() const ;
 		void setOperator(bool status); 

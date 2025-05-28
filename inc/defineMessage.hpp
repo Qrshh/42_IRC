@@ -44,7 +44,7 @@
 // #define ERR_USERNOTINCHANNEL(nickname, channelname) (": 441 " + nickname + " " + channelname + " :They aren't on that channel" + CRLF)
 // #define ERR_USERONCHANNEL(nickname, channel) (": 443 " + nickname + " " + channel + " :User already on channel" + CRLF)
 // #define ERR_ALREADYONCHANNEL(channel) (": 443 #" + channel + " :User already on channel" + CRLF)
-// #define ERR_NOTREGISTERED(nickname) (": 451 " + nickname + " :You have not registered!" + CRLF)
+#define ERR_NOTREGISTERED(nickname) (": 451 " + nickname + " :You have not registered!" + CRLF)
 #define ERR_NOTENOUGHPARAM(nickname) (": 461 " + nickname + " :Not enough parameters." + CRLF)
 #define ERR_ALREADYREGISTERED(nickname) (": 462 " + nickname + " :You may not reregister !" + CRLF)
 // #define ERR_YOUREBANNEDCREEP(nickname) (": 465 " + nickname + " :You're banned from the server" + CRLF)
