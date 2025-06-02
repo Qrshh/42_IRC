@@ -129,15 +129,11 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
 		std::cout << "Arg[" << i << "]: " << args[i] << std::endl;
 
     if (command == "CAP")
+	{
+		handleCap(client, args);
         return;
+	}
 
-    // Si client non enregistré, n'accepter que PASS, NICK, USER
-    if (!client->isRegistered()) {
-        if (command != "PASS" && command != "NICK" && command != "USER") {
-            sendMessage(client->getSocket(), "ERROR :You have not registered\r\n");
-            return;
-        }
-    }
     if (command == "PASS") {
         if(client->isRegistered()) {
             sendMessage(client->getSocket(), ERR_ALREADYREGISTERED(client->getNickname()));
@@ -186,61 +182,73 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
 		}
     }
     else if (command == "JOIN") {
-		if (!client->isRegistered()){
-			sendMessage(client->getSocket(), ERR_NOTREGISTERED(client->getNickname()));
-			return ;
-		}
-        if (args.empty()) {
-            sendMessage(client->getSocket(), ERR_NOTENOUGHPARAM(client->getNickname()));
-            return;
-        }
-		std::string channelName = args[0];
-		Channel *channel = NULL;
-		for(size_t i = 0; i < _channels.size(); i++){
-			if(_channels[i].getChannelName() == channelName){
-				channel = &_channels[i];
-				break;
-			}
-		}
-		if(!channel){
-			_channels.push_back(Channel(channelName));
-			channel = &_channels.back();
-		}
-		channel->addMember(client);
-		client->setCurrentChannel(channelName);
-
-		std::string joinMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@" + client->getHostname() + " JOIN :" + channelName + "\r\n";
-		sendMessage(client->getSocket(), joinMsg);
-
-		std::string nameList = ":" + std::string("localhost") + " 353 " + client->getNickname() + " = " + channelName + " :" + client->getNickname() + "\r\n";
-		sendMessage(client->getSocket(), nameList);
-
-		std::string endNames = ":" + std::string("localhost") + " 366 " + client->getNickname() + " " + channelName + " :End of /NAMES list.\r\n";
-		sendMessage(client->getSocket(), endNames);
+        handleJoin(client, args);
 		return ;
 	}
-    else {
-        // Ici on considère que la "commande" non reconnue est un message à envoyer au channel courant
+}
 
-        std::string channelName = client->getCurrentChannel();
-        if (!channelName.empty()) {
-            // Reconstruire le message complet à partir de command + args
-            std::string fullMessage = command;
-            for (size_t i = 0; i < args.size(); ++i) {
-                fullMessage += " " + args[i];
-            }
-
-            // Construire la ligne PRIVMSG à envoyer au channel
-            std::string msg = ":" + client->getNickname() + " PRIVMSG " + channelName + " :" + fullMessage + "\r\n";
-
-            // Fonction pour envoyer à tous les membres du channel
-            sendMessageToChannel(channelName, msg);
-        } else {
-            // Pas de channel courant : on informe le client
-            std::string err = ":" + std::string("localhost") + " NOTICE " + client->getNickname() + " :Tu n'es dans aucun channel.\r\n";
-            sendMessage(client->getSocket(), err);
-        }
+void Server::handleCap(Client* client, const std::vector<std::string>& args) {
+	if (args.size() >= 1 && args[0] == "LS") {
+		// On indique qu’on ne supporte aucune capacité
+		std::string response = "CAP * LS :" CRLF;
+		sendMessage(client->getSocket(), response);
 	}
+	else if (args[0] == "END")
+		std::cout << "CAP END recu" << std::endl;
+}
+
+void Server::handleJoin(Client* client, const std::vector<std::string>& args){
+
+	std::cout << "Tentative de JOIN par " << client->getNickname() << " dans " << args[0] << std::endl;
+
+	if (!client->isRegistered()) {
+		sendMessage(client->getSocket(), ERR_NOTREGISTERED(client->getNickname()));
+		return;
+	}
+	
+	if (args.empty() || args[0] == ":" || args[0].empty()) {
+        sendMessage(client->getSocket(), ERR_NOTENOUGHPARAM(client->getNickname()));
+        return;
+    }
+
+    std::string channelName = args[0];
+    // Vérification du nom du canal (doit commencer par # ou &)
+    if (channelName[0] != '#' && channelName[0] != '&') {
+        sendMessage(client->getSocket(), ERR_CHANNELNOTFOUND(client->getNickname(), channelName));
+        return;
+    }
+
+	for(size_t i = 0; i < _channels.size(); i++)
+	{
+		if(_channels[i].getChannelName() == args[0])
+		{
+			if(_channels[i].isInviteOnly() && _channels[i].isInvited(client)){
+				sendMessage(client->getSocket(), ERR_INVITEONLYCHAN(client->getNickname(), args[0]));
+				return ;
+			}
+			if(_channels[i].getUserLimit() > 0)
+			{
+				if(_channels[i].getMembers().size() >= _channels[i].getUserLimit())
+				{
+					sendMessage(client->getSocket(), ERR_CHANNELISFULL(client->getNickname(), args[0]));
+					return ;
+				}
+			}
+			_channels[i].addMember(client);
+			//supprimer l'invitation que le client avait recu
+			return ;
+		}
+	}
+	Channel newChannel(args[0]);
+	newChannel.addMember(client);
+	newChannel.addOperator(client);
+	_channels.push_back(newChannel);
+
+	std::string joinMsg = ":" + client->getNickname() + "!" +
+	client->getUsername() + "@" + client->getHostname() +
+	" JOIN :" + channelName + "\r\n";
+	sendMessage(client->getSocket(), joinMsg);
+
 }
 
 void Server::sendMessageToChannel(const std::string &channelName, const std::string &message) {

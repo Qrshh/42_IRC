@@ -1,7 +1,7 @@
 #include "Channel.hpp"
 #include "Client.hpp"
 
-Channel::Channel(const std::string &name) : channelName(name) {}
+Channel::Channel(const std::string &name) : channelName(name), inviteOnly(false), userLimit(0) {}
 
 const std::string &Channel::getChannelName() const {
     return channelName;
@@ -63,4 +63,8 @@ void Channel::leaveChannel(Client* client) {
     removeMember(client);
     removeOperator(client);
     client->leaveChannel(this); // Ici c’est OK car Client est connu
+}
+
+bool Channel::isInvited(Client *client) const {
+	return std::find(invitedClients.begin(), invitedClients.end(), client) != invitedClients.end();
 }

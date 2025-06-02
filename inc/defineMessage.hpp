@@ -21,7 +21,7 @@
 // #define RPL_UMODEIS(hostname, channelname, mode, user) (":" + hostname + " MODE " + channelname + " " + mode + " " + user + CRLF)
 // #define RPL_CHANGEMODE(hostname, channelname, mode, arguments) (":" + hostname + " MODE #" + channelname + " " + mode + " " + arguments + CRLF)
 // //#define RPL_INVITING(client, target, channel) (": 341 " + client + " " + target + " " + channel + CRLF)
-// #define ERR_INVITEONLYCHAN(nick, channel) (std::string(":") + SERVER_NAME + " 473 " + nick + " " + channel + " :Cannot join channel (+i)\r\n")
+#define ERR_INVITEONLYCHAN(nick, channel) (std::string(":") + SERVER_NAME + " 473 " + nick + " " + channel + " :Cannot join channel (+i)\r\n")
 // #define RPL_INVITE(from, target, channel) (std::string(":") + from + " INVITE " + target + " " + channel + "\r\n")
 // #define RPL_INVITING(from, target, channel) (std::string(":") + SERVER_NAME + " 341 " + from + " " + target + " " + channel + "\r\n")
 
@@ -32,7 +32,7 @@
 /* 400s - Client Errors */
 #define ERR_NOSUCHNICK(channelname, name) (": 401 #" + channelname + " " + name + " :No such nick/channel" + CRLF)
 // #define ERR_NOSUCHSERVER(nickname, server) (": 402 " + nickname + " " + server + " :No such server" + CRLF)
-// #define ERR_CHANNELNOTFOUND(nickname, channelname) (": 403 " + nickname + " " + channelname + " :No such channel" + CRLF)
+#define ERR_CHANNELNOTFOUND(nickname, channelname) (": 403 " + nickname + " " + channelname + " :No such channel" + CRLF)
 // #define ERR_CANNOTSENDTOCHAN(channel) (": 404 #" + channel + " :Cannot send to channel" + CRLF)
 #define ERR_NORECIPIENT(nickname, command) (": 411 " + nickname + " :No recipient given (" + command + ")" + CRLF)
 #define ERR_NOTEXTTOSEND(nickname) (": 412 " + nickname + " :No text to send" + CRLF)
@@ -62,4 +62,4 @@
 // #define ERR_CHANOPRIVSNEEDED(nick, channel) ("482 " + nick + " " + channel + " :You're not channel operator\r\n")
 // #define ERR_NEEDMOREPARAMS(nick, command) ("461 " + nick + " " + command + " :Not enough parameters\r\n")
 // #define ERR_NOSUCHCHANNEL(nick, channel) ("403 " + nick + " " + channel + " :No such channel\r\n")
-// #define ERR_CHANNELISFULL(nick, channel) ("471 " + nick + " " + channel + " :Cannot join channel (+l)\r\n")
+#define ERR_CHANNELISFULL(nick, channel) ("471 " + nick + " " + channel + " :Cannot join channel (+l)\r\n")

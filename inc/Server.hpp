@@ -46,10 +46,12 @@ public:
 	std::string joinParams(const std::vector<std::string>& params);
 
 	void handleQuit(Client *client);
+	void handleCap(Client *client, const std::vector<std::string>& args);
 	void handlePrivMessageChannel(Client *client, const std::vector<std::string>& params);
 	void handlePrivMessageUser(Client *client, const std::string& target, const std::string& message);
 	void handleNick(Client *client, const std::string& newNick);
 	void handleUser(Client *client, const std::vector<std::string> &params);
+	void handleJoin(Client *client, const std::vector<std::string>& args);
 };
 
 #endif

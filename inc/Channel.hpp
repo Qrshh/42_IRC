@@ -10,8 +10,11 @@ class Channel {
 private:
     std::string channelName;
     std::string channelTopic;
+	bool inviteOnly;
+	unsigned long userLimit;
     std::vector<Client*> channelMembers;
     std::vector<Client*> channelOperators;
+	std::vector<Client*> invitedClients;
 
 public:
     Channel(const std::string &name);
@@ -28,6 +31,12 @@ public:
     void addOperator(Client* client);
     void removeOperator(Client* client);
     bool isOperator(Client* client) const;
+	bool isInviteOnly() const {return inviteOnly;}
+	bool isInvited(Client *client) const ;
+	unsigned long getUserLimit() const {return userLimit;}
+
+	void setUserLimit(int limit) {userLimit = limit;}
+	void setInviteOnly(bool mode) {inviteOnly = mode;}
 
     void leaveChannel(Client* client); // déclaration seulement, pas d'implémentation ici
 };
