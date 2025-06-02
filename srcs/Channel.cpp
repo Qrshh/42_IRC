@@ -35,11 +35,28 @@ void Channel::channelMessage(const std::vector<std::string>& params, Client *cli
 	}
 }
 
+void Channel::sendMessage(int fd, const std::string &message){
+	send(fd, message.c_str(), message.length(), 0);
+}
 
+void Channel::joinedMessage(Client *client){
+        for (size_t i = 0; i < channelMembers.size(); i++)
+        {
+                if (channelMembers[i]->getSocket() != client->getSocket()) //Celui qui envoi le message ne doit pas le recevoir
+                {
+                        // Préparer le message au format IRC
+                        std::string ircMessage = ":" + client->getNickname() + "!~" + client->getUsername() + "@localhost JOIN " + this->getChannelName() + "\r\n";
+                        // Envoyer le message formaté au client
+                        sendMessage(channelMembers[i]->getSocket(), ircMessage);
+                        //send(clients[i]->getFd(), ircMessage.c_str(), ircMessage.length(), 0);
+                }
+        }
+}
 
 void Channel::addMember(Client* client) {
     if (std::find(channelMembers.begin(), channelMembers.end(), client) == channelMembers.end())
         channelMembers.push_back(client);
+		joinedMessage(client);
 }
 
 void Channel::removeMember(Client* client) {

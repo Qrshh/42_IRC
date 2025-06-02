@@ -38,5 +38,8 @@ public:
 	void setUserLimit(int limit) {userLimit = limit;}
 	void setInviteOnly(bool mode) {inviteOnly = mode;}
 
+	void joinedMessage(Client *client);
+	void sendMessage(int fd, const std::string &message);
+
     void leaveChannel(Client* client); // déclaration seulement, pas d'implémentation ici
 };

@@ -23,7 +23,7 @@ class Server {
 private:
 	int _serverFd;
 	std::vector<struct pollfd> _pollFds;
-	std::map<int, Client*> _clients;
+	std::vector<Client*> clients;
 	std::vector<Channel> _channels;
 	std::string _password;
 
@@ -52,6 +52,10 @@ public:
 	void handleNick(Client *client, const std::string& newNick);
 	void handleUser(Client *client, const std::vector<std::string> &params);
 	void handleJoin(Client *client, const std::vector<std::string>& args);
+	void handlePing(Client* client, const std::vector<std::string>&args);
+
+	Client* getClientByFd(int fd);
+	Client* getClientByNickname(const std::string& nickname);
 };
 
 #endif

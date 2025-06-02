@@ -8,7 +8,7 @@
 /*******************************/
 
 /* Numeric Replies  */
-#define RPL_CONNECTED(nickname, username, hostname) (":001 " + nickname + " :Welcome to the Internet Relay Network " + nickname + "!" + username + "@" + hostname + CRLF)
+#define RPL_CONNECTED(nickname, username, hostname) (":" SERVER_NAME " 001 " + nickname + " :Welcome to the Internet Relay Network " + nickname + "!" + username + "@" + hostname + CRLF)
 // #define RPL_CHANNELMODES(nickname, channelname, modes) (": 324 " + nickname + " #" + channelname + " " + modes + CRLF)
 // #define RPL_CREATIONTIME(nickname, channelname, creationtime) (": 329 " + nickname + " #" + channelname + " " + creationtime + CRLF)
 // #define RPL_TOPICIS(nickname, channelname, topic) (": 332 " + nickname + " " + channelname + " :" + topic + CRLF)

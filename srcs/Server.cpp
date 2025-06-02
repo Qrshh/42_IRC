@@ -28,8 +28,8 @@ Server::Server(int port, const std::string &password) : _password(password) {
 }
 
 Server::~Server() {
-	for (std::map<int, Client*>::iterator it = _clients.begin(); it != _clients.end(); ++it)
-		delete it->second;
+	for(std::vector<Client*>::iterator it = clients.begin(); it != clients.end(); ++it)
+		delete *it;
 	close(_serverFd);
 }
 
@@ -55,35 +55,67 @@ void Server::sendMessage(int fd, const std::string& message){
 	send(fd, message.c_str(), message.length(), 0);
 }
 
+Client* Server::getClientByFd(int fd) {
+    for (size_t i = 0; i < clients.size(); ++i) {
+        if (clients[i]->getSocket() == fd) {
+            return clients[i];
+        }
+    }
+    return NULL;
+}
+
+Client* Server::getClientByNickname(const std::string& nickname) {
+    for (size_t i = 0; i < clients.size(); ++i) {
+        if (clients[i] && clients[i]->getNickname() == nickname) {
+            return clients[i];
+        }
+    }
+    return NULL;
+}
+
+
 void Server::acceptNewClient() {
-	int clientFd = accept(_serverFd, NULL, NULL);
-	if (clientFd < 0)
-		return;
+    int clientFd = accept(_serverFd, NULL, NULL);
+    if (clientFd < 0)
+        return;
 
-	fcntl(clientFd, F_SETFL, O_NONBLOCK);
+    fcntl(clientFd, F_SETFL, O_NONBLOCK);
 
-	struct pollfd pfd;
-	pfd.fd = clientFd;
-	pfd.events = POLLIN;
-	pfd.revents = 0;
+    struct pollfd pfd;
+    pfd.fd = clientFd;
+    pfd.events = POLLIN;
+    pfd.revents = 0;
 
-	_pollFds.push_back(pfd);
-	_clients[clientFd] = new Client(clientFd);
+    _pollFds.push_back(pfd);
+    
+    // Création du client directement dans le vector
+    Client *newClient = new Client(clientFd);
+    clients.push_back(newClient);
 
-	std::cout << "New client connected: " << clientFd << std::endl;
+    std::cout << "New client connected: " << clientFd << std::endl;
 }
 
 void Server::handleClientInput(int fd) {
-	char buffer[BUFFER_SIZE + 1];
-	int bytesRead = recv(fd, buffer, BUFFER_SIZE, 0);
+    char buffer[BUFFER_SIZE + 1];
+    int bytesRead = recv(fd, buffer, BUFFER_SIZE, 0);
 
-	buffer[bytesRead] = '\0';
-	std::string data(buffer);
+    if (bytesRead <= 0) {
+        // Gestion de la déconnexion
+        handleQuit(getClientByFd(fd));
+        return;
+    }
 
-	Client *client = _clients[fd];
-	client->getRecvBuffer() += data;
+	Client *client = getClientByFd(fd);
+	if(!client)
+		return ;
 
-	size_t pos;
+
+    buffer[bytesRead] = '\0';
+    std::string data(buffer);
+
+    client->getRecvBuffer() += data;
+    
+    size_t pos;
 	while ((pos = client->getRecvBuffer().find("\r\n")) != std::string::npos) {
 		std::string command = client->getRecvBuffer().substr(0, pos);
 		client->eraseRecvBuffer(pos + 2);
@@ -133,8 +165,7 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
 		handleCap(client, args);
         return;
 	}
-
-    if (command == "PASS") {
+    else if (command == "PASS") {
         if(client->isRegistered()) {
             sendMessage(client->getSocket(), ERR_ALREADYREGISTERED(client->getNickname()));
             return;
@@ -185,6 +216,26 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
         handleJoin(client, args);
 		return ;
 	}
+	else if (command == "PING"){
+		handlePing(client, args);
+		return ;
+	}
+}
+
+void Server::handlePing(Client* client, const std::vector<std::string>& args){
+	if(args.empty()){
+		std::cerr << "PING RECEIVED WITHOUT ARGUMENTS\n";
+		return ;
+	}
+
+	std::string pongReply = "PONG :" + args[0] + "\r\n";
+	std::cout << "Sending to " << client->getNickname() << ": " << pongReply;
+
+	ssize_t sent_bytes = send(client->getSocket(), pongReply.c_str(), pongReply.length(), 0);
+	if(sent_bytes < 0)
+		perror("send failed");
+	else
+		std::cout << "Sent PONG reply successfully\n";
 }
 
 void Server::handleCap(Client* client, const std::vector<std::string>& args) {
@@ -288,9 +339,9 @@ void  Server::handleNick(Client *client, const std::string &newNick)
 		return ;
 	}
 
-	for (std::map<int, Client*>::iterator it = _clients.begin(); it != _clients.end(); ++it)
+	for(std::vector<Client*>::iterator it = clients.begin(); it != clients.end(); ++it)
 	{
-		if(it->second->getNickname() == newNick)
+		if((*it)->getNickname() == newNick)
 		{
 			sendMessage(client->getSocket(), ERR_NICKINUSE(newNick));
 			return ;
@@ -330,7 +381,7 @@ void Server::handleUser(Client *client, const std::vector<std::string> &params){
 void Server::handlePrivMessageChannel(Client *client, const std::vector<std::string>& params){
 	for(size_t i = 0; i < _channels.size(); i++)
 	{
-		std::cout << "-------------entered PRIV MSG \n";
+		std::cout << "MESSAGE TO CHANNEL" + _channels[i].getChannelName() + "\n";
 		if(_channels[i].getChannelName() == params[0])
 		{
 			_channels[i].channelMessage(params, client);
@@ -339,43 +390,40 @@ void Server::handlePrivMessageChannel(Client *client, const std::vector<std::str
 	}
 }
 
-void Server::handlePrivMessageUser(Client *client, const std::string& target, const std::string& message){
-    if(target.empty())
-    {
-        sendMessage(client->getSocket(), ERR_NORECIPIENT(client->getNickname(), "(PRIVMSG)"));
-        return ;
+void Server::handlePrivMessageUser(Client *client, const std::string& target, const std::string& message) {
+    // Vérification des paramètres
+    if (target.empty()) {
+        sendMessage(client->getSocket(), ERR_NORECIPIENT(client->getNickname(), "PRIVMSG"));
+        return;
     }
-    if(message.empty())
-    {
+    if (message.empty()) {
         sendMessage(client->getSocket(), ERR_NOTEXTTOSEND(client->getNickname()));
-        return ;
+        return;
     }
 
-    bool targetFound = false;
-    for(std::map<int, Client*>::iterator it = _clients.begin(); it != _clients.end(); ++it){
-        std::cout << "Searching ... :" << it->first << "\n";
-        if(it->second->getNickname() == target)
-        {
-            std::cout << "Found\n";
-            //Format du message
-            std::string formattedMsg = ":" + client->getNickname() + "!" 
-                + client->getUsername() + "@" 
-                + client->getHostname() 
-                + " PRIVMSG " + target 
-                + " " + message + "\r\n";
-
-            std::cout << formattedMsg << "\n";
-            send(it->second->getSocket(), formattedMsg.c_str(), formattedMsg.length(), 0);
-            targetFound = true;
-            break ;
+    // Recherche du client cible
+    Client* targetClient = NULL;
+    for (size_t i = 0; i < clients.size(); ++i) {
+        if (clients[i]->getNickname() == target) {
+            targetClient = clients[i];
+            break;
         }
     }
-    if(!targetFound)
-    {
+
+    if (!targetClient) {
         sendMessage(client->getSocket(), ERR_NOSUCHNICK(target, client->getNickname()));
-        return ;
+        return;
     }
 
+    // Formatage du message selon le standard IRC
+    std::string formattedMsg = ":" + client->getNickname() + "!" 
+                            + client->getUsername() + "@" 
+                            + client->getHostname() 
+                            + " PRIVMSG " + target 
+                            + " :" + message + "\r\n";
+
+    // Envoi du message
+    send(targetClient->getSocket(), formattedMsg.c_str(), formattedMsg.length(), 0);
 }
 
 void Server::tryRegisterClient(Client* client) {
@@ -391,12 +439,34 @@ void Server::tryRegisterClient(Client* client) {
 	}
 }
 
-void Server::handleQuit(Client *client)
-{
-	std::cout << "Client <" << client->getSocket() << "> Disconnected" << std::endl;
-	close(client->getSocket());
-	std::cout << "Quit Success "  << std::endl;
-	return;
+void Server::handleQuit(Client *client) {
+    if (!client) return;
+    
+    std::cout << "Client <" << client->getSocket() << "> Disconnected" << std::endl;
+    
+    // Retirer le client des channels
+    for (size_t i = 0; i < _channels.size(); ++i) {
+        _channels[i].removeMember(client);
+    }
+    
+    // Fermer la connexion
+    close(client->getSocket());
+    
+    // Retirer le client de la liste
+    for (size_t i = 0; i < clients.size(); ++i) {
+        if (clients[i]->getSocket() == client->getSocket()) {
+            clients.erase(clients.begin() + i);
+            break;
+        }
+    }
+    
+    // Retirer le fd de poll
+    for (size_t i = 0; i < _pollFds.size(); ++i) {
+        if (_pollFds[i].fd == client->getSocket()) {
+            _pollFds.erase(_pollFds.begin() + i);
+            break;
+        }
+    }
 }
 
 std::string Server::joinParams(const std::vector<std::string>& params)
