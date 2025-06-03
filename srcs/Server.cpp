@@ -273,7 +273,7 @@ void Server::handleJoin(Client* client, const std::vector<std::string>& args){
 	{
 		if(_channels[i].getChannelName() == args[0])
 		{
-			if(_channels[i].isInviteOnly() && _channels[i].isInvited(client)){
+			if(_channels[i].isInviteOnly() && !_channels[i].isInvited(client)){
 				sendMessage(client->getSocket(), ERR_INVITEONLYCHAN(client->getNickname(), args[0]));
 				return ;
 			}
@@ -286,7 +286,13 @@ void Server::handleJoin(Client* client, const std::vector<std::string>& args){
 				}
 			}
 			_channels[i].addMember(client);
-			//supprimer l'invitation que le client avait recu
+			// //supprimer l'invitation que le client avait recu
+			// 	std::string joinMsg = ":" + client->getNickname() + "!" +
+			// 		client->getUsername() + "@" + client->getHostname() +
+			// 		" JOIN :" + channelName + "\r\n";
+	
+			// sendMessageToChannel(channelName, joinMsg);
+
 			return ;
 		}
 	}
@@ -294,12 +300,6 @@ void Server::handleJoin(Client* client, const std::vector<std::string>& args){
 	newChannel.addMember(client);
 	newChannel.addOperator(client);
 	_channels.push_back(newChannel);
-
-	std::string joinMsg = ":" + client->getNickname() + "!" +
-	client->getUsername() + "@" + client->getHostname() +
-	" JOIN :" + channelName + "\r\n";
-	sendMessage(client->getSocket(), joinMsg);
-
 }
 
 void Server::sendMessageToChannel(const std::string &channelName, const std::string &message) {
@@ -378,52 +378,86 @@ void Server::handleUser(Client *client, const std::vector<std::string> &params){
 	client->setSentUser(true);
 }
 
-void Server::handlePrivMessageChannel(Client *client, const std::vector<std::string>& params){
-	for(size_t i = 0; i < _channels.size(); i++)
-	{
-		std::cout << "MESSAGE TO CHANNEL" + _channels[i].getChannelName() + "\n";
-		if(_channels[i].getChannelName() == params[0])
-		{
-			_channels[i].channelMessage(params, client);
-			return ;
-		}
-	}
-}
-
-void Server::handlePrivMessageUser(Client *client, const std::string& target, const std::string& message) {
-    // Vérification des paramètres
-    if (target.empty()) {
-        sendMessage(client->getSocket(), ERR_NORECIPIENT(client->getNickname(), "PRIVMSG"));
-        return;
-    }
-    if (message.empty()) {
-        sendMessage(client->getSocket(), ERR_NOTEXTTOSEND(client->getNickname()));
+void Server::handlePrivMessageChannel(Client *client, const std::vector<std::string>& params) {
+    if (params.size() < 2) {
+        sendMessage(client->getSocket(), ERR_NOTENOUGHPARAM(client->getNickname()));
         return;
     }
 
-    // Recherche du client cible
-    Client* targetClient = NULL;
-    for (size_t i = 0; i < clients.size(); ++i) {
-        if (clients[i]->getNickname() == target) {
-            targetClient = clients[i];
-            break;
+    std::string targetChannel = params[0];
+    std::string message = joinParams(params);  // Tu peux définir joinParams pour concaténer les params à partir d’un index
+    if (!message.empty() && message[0] == ':')
+        message = message.substr(1);
+
+    for (size_t i = 0; i < _channels.size(); ++i) {
+        if (_channels[i].getChannelName() == targetChannel) {
+            if (!_channels[i].isMember(client)) {
+                sendMessage(client->getSocket(), ERR_CANNOTSENDTOCHAN(targetChannel));
+                return;
+            }
+
+            std::string formattedMessage = ":" + client->getNickname() + "!" + client->getUsername() +
+                                           "@" + client->getHostname() + " PRIVMSG " + targetChannel + " :" + message + "\r\n";
+
+            const std::vector<Client*>& members = _channels[i].getMembers();
+            for (size_t j = 0; j < members.size(); ++j) {
+                if (members[j] != client) {
+                    sendMessage(members[j]->getSocket(), formattedMessage);
+                }
+            }
+            return;
         }
     }
 
-    if (!targetClient) {
-        sendMessage(client->getSocket(), ERR_NOSUCHNICK(target, client->getNickname()));
-        return;
-    }
+    sendMessage(client->getSocket(), ERR_NOSUCHCHANNEL(client->getNickname(), targetChannel));
+}
 
-    // Formatage du message selon le standard IRC
-    std::string formattedMsg = ":" + client->getNickname() + "!" 
-                            + client->getUsername() + "@" 
-                            + client->getHostname() 
-                            + " PRIVMSG " + target 
-                            + " :" + message + "\r\n";
 
-    // Envoi du message
-    send(targetClient->getSocket(), formattedMsg.c_str(), formattedMsg.length(), 0);
+void Server::handlePrivMessageUser(Client *client, const std::string &target, const std::string &message)
+{
+	// Vérifier si la cible et le message sont vides
+	if (target.empty())
+	{
+		sendMessage(client->getSocket(), ERR_NORECIPIENT(client->getNickname(), "(PRIVMSG)"));
+		return;
+	}
+
+	if (message.empty())
+	{
+		sendMessage(client->getSocket(), ERR_NOTEXTTOSEND(client->getNickname()));
+		return;
+	}
+
+	// Chercher le client cible dans la liste des clients
+	bool targetFound = false;
+	for (size_t i = 0; i < clients.size(); ++i)
+	{
+		std::cout << "searching : " << i << "\n";
+		if (clients[i]->getNickname() == target)
+		{
+			std::cout << "found\n";
+			// Format du message: :nickname!username@host PRIVMSG target :message
+			std::string formattedMsg = ":" + client->getNickname() + "!" 
+                         + client->getUsername() + "@localhost" 
+                        //  + client->getHostname() 
+                         + " PRIVMSG " + target 
+                         + " :" + message + "\r\n";  // <-- ICI le ":" est important
+
+			
+			// Envoyer le message au client cible
+			std::cout << formattedMsg;
+			sendMessage(clients[i]->getSocket(), formattedMsg);
+			std::cout << clients[i]->getSocket() << "----" << formattedMsg << "-----" << std::endl;
+			targetFound = true;
+			break;
+		}
+	}
+	// Si la cible n'a pas été trouvée, envoyer une erreur
+	if (!targetFound)
+	{
+		sendMessage(client->getSocket(), ERR_NOSUCHNICK(target, client->getNickname()));
+		return;
+	}
 }
 
 void Server::tryRegisterClient(Client* client) {
@@ -469,13 +503,18 @@ void Server::handleQuit(Client *client) {
     }
 }
 
-std::string Server::joinParams(const std::vector<std::string>& params)
-{
-	std::string joinedParams;
-	for(size_t i = 1; i < params.size(); i++){
-		joinedParams += params[i];
-		if(i != params.size() - 1)
-			joinedParams += " ";
-	}
-	return joinedParams;
+std::string Server::joinParams(const std::vector<std::string>& args) {
+    std::string result;
+    for (size_t i = 1; i < args.size(); ++i) {
+        if (i > 1)
+            result += " ";
+        result += args[i];
+    }
+
+    // Supprimer le ':' initial s’il existe
+    if (!result.empty() && result[0] == ':')
+        result = result.substr(1);
+
+    return result;
 }
+

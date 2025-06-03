@@ -31,6 +31,7 @@ public:
     void addOperator(Client* client);
     void removeOperator(Client* client);
     bool isOperator(Client* client) const;
+	bool isMember(Client *client) const ;
 	bool isInviteOnly() const {return inviteOnly;}
 	bool isInvited(Client *client) const ;
 	unsigned long getUserLimit() const {return userLimit;}
