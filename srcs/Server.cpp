@@ -445,7 +445,7 @@ void Server::handlePrivMessageUser(Client *client, const std::string &target, co
 
 			
 			// Envoyer le message au client cible
-			std::cout << formattedMsg;
+			std::cout << "Final message to send: [" << formattedMsg << "]";
 			sendMessage(clients[i]->getSocket(), formattedMsg);
 			std::cout << clients[i]->getSocket() << "----" << formattedMsg << "-----" << std::endl;
 			targetFound = true;
