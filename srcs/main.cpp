@@ -9,43 +9,41 @@
 
 Server* g_server = NULL;
 
-
-
-#include <iostream>
-#include <cstdlib>
-#include "Server.hpp"
+void handleSigint(int sig) {
+    (void)sig;
+    std::cout << "\nArrêt du serveur demandé (SIGINT)" << std::endl;
+    if (g_server)
+        delete g_server;
+    std::exit(0);
+}
 
 int main(int argc, char **argv)
 {
-    // Vérification des arguments
     if (argc != 3) {
         std::cerr << "Usage: " << argv[0] << " <port> <mot_de_passe>" << std::endl;
         return 1;
     }
 
+    int port = std::atoi(argv[1]);
+    if (port <= 0 || port > 65535) {
+        std::cerr << "Port invalide." << std::endl;
+        return 1;
+    }
+
+    std::string password = argv[2];
+
+    std::signal(SIGINT, handleSigint);
+
     try {
-        // Conversion et validation du port
-        int port = std::atoi(argv[1]);
-        std::string password = argv[2];
-
-        // Création et initialisation du serveur
-        Server server(port, password);
-        Server::instance = &server;  // Pour le gestionnaire de signaux
-        server.isRunning = true;     // Démarrage du serveur
-
-        std::cout << "\nServeur IRC démarré et en attente de connexions..." << std::endl;
-        
-        // Boucle principale du serveur
-        while (server.isRunning) {
-            // Maintenir le serveur actif
-            // TODO: Ajouter la logique de gestion des connexions clients
-        }
+        g_server = new Server(port, password);
+        std::cout << "Serveur IRC démarré et en attente de connexions sur le port " << port << "..." << std::endl;
+        g_server->run(); // Boucle principale
     }
     catch (const std::exception& e) {
         std::cerr << "Erreur fatale: " << e.what() << std::endl;
+        delete g_server;
         return 1;
     }
 
     return 0;
 }
-

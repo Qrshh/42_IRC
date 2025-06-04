@@ -1,49 +1,61 @@
-// Server.hpp
-#pragma once
+#ifndef SERVER_HPP
+# define SERVER_HPP
 
-#include <string>
-#include <vector>
-#include <poll.h>
-#include "Client.hpp"
-#include "Channel.hpp"
-#include <unistd.h>
-#include <fcntl.h>
-#include <iostream>
-#include <cstring>
-#include <arpa/inet.h>
-#include <sstream>
-#include <algorithm>
-#include <cctype> 
-#include "Client.hpp"
-#include "Channel.hpp"
+# include <vector>
+# include <map>
+# include <set>
+# include <string>
+# include <poll.h>
+# include <netinet/in.h>
+# include <arpa/inet.h>
+# include <sys/socket.h>
+# include <fcntl.h>
+# include <unistd.h>
+# include <iostream>
+# include <sstream>
+# include "Client.hpp"
+# include "Channel.hpp"
+# include "defineMessage.hpp"
 
-
-#define IPV4 AF_INET  
-#define GLOB_SOCK_OPT SOL_SOCKET
-#define TCP SOCK_STREAM
-#define CTRL_C SIGINT
-#define CTRL_Z SIGTSTP
-
-class Client;
-
-class Channel;
+# define BUFFER_SIZE 512
 
 class Server {
 private:
-    int serverSocket;
-    int port;
-    std::string password;
-    std::vector<struct pollfd> pollFds;
-    
-    
-    public:
-    Server(int _port, const std::string &_password);
-    bool isRunning;
-    static void signalHandler(int signal);
-    static Server* instance; 
-    void shutdownServer(int signal);
-    bool isValidIPv4(const std::string& ipAddress);
-    ~Server();
+	int _serverFd;
+	std::vector<struct pollfd> _pollFds;
+	std::vector<Client*> clients;
+	std::vector<Channel> _channels;
+	std::string _password;
 
+public:
+	Server(int port, const std::string &password);
+	~Server();
+
+	void run();
+	void acceptNewClient();
+	void handleClientInput(int fd);
+	void splitCommand(Client *client, std::string cmds);
+	void handleCommand(Client *client, const std::string &command, std::vector<std::string>args);
+
+	void sendMessage(int fd, const std::string& message);
+	void sendMessageToChannel(const std::string &channelName, const std::string &message);
+	
+	void registerPassword(Client *client, const std::string buff);
+	void tryRegisterClient(Client* client);
+
+	std::string joinParams(const std::vector<std::string>& params);
+
+	void handleQuit(Client *client);
+	void handleCap(Client *client, const std::vector<std::string>& args);
+	void handlePrivMessageChannel(Client *client, const std::vector<std::string>& params);
+	void handlePrivMessageUser(Client *client, const std::string& target, const std::string& message);
+	void handleNick(Client *client, const std::string& newNick);
+	void handleUser(Client *client, const std::vector<std::string> &params);
+	void handleJoin(Client *client, const std::vector<std::string>& args);
+	void handlePing(Client* client, const std::vector<std::string>&args);
+
+	Client* getClientByFd(int fd);
+	Client* getClientByNickname(const std::string& nickname);
 };
 
+#endif
