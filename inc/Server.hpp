@@ -57,6 +57,7 @@ public:
 	void handlePing(Client* client, const std::vector<std::string>&args);
 	void handleTopic(Client *client, const std::vector<std::string> &args);
 	void handleModes(Client *client, const std::vector<std::string> &args);
+	void handleInvite(Client* client, const std::vector<std::string>& args);
 
 	Client* getClientByFd(int fd);
 	Client* getClientByNickname(const std::string& nickname);

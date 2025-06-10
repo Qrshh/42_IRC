@@ -371,52 +371,68 @@ void Server::handleCap(Client* client, const std::vector<std::string>& args) {
 		std::cout << "CAP END recu" << std::endl;
 }
 
-void Server::handleJoin(Client* client, const std::vector<std::string>& args){
+void Server::handleJoin(Client* client, const std::vector<std::string>& args) {
+    std::cout << "Tentative de JOIN par " << client->getNickname() << " dans " << (args.empty() ? "" : args[0]) << std::endl;
 
-	std::cout << "Tentative de JOIN par " << client->getNickname() << " dans " << args[0] << std::endl;
-
-	if (!client->isRegistered()) {
-		sendMessage(client->getSocket(), ERR_NOTREGISTERED(client->getNickname()));
-		return;
-	}
-	
-	if (args.empty() || args[0] == ":" || args[0].empty()) {
-        sendMessage(client->getSocket(), ERR_NOTENOUGHPARAM(client->getNickname()));
+    // 1. Vérifications de base
+    if (!client->isRegistered()) {
+        sendMessage(client->getSocket(), ERR_NOTREGISTERED(client->getNickname()));
+        return;
+    }
+    
+    if (args.empty() || args[0].empty() || args[0] == ":") {
+        sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "JOIN"));
         return;
     }
 
     std::string channelName = args[0];
-    // Vérification du nom du canal (doit commencer par # ou &)
     if (channelName[0] != '#' && channelName[0] != '&') {
-        sendMessage(client->getSocket(), ERR_CHANNELNOTFOUND(client->getNickname(), channelName));
+        sendMessage(client->getSocket(), ERR_NOSUCHCHANNEL(client->getNickname(), channelName));
         return;
     }
 
-	for(size_t i = 0; i < _channels.size(); i++)
-	{
-		if(_channels[i].getChannelName() == args[0])
-		{
-			if(_channels[i].isInviteOnly() && !_channels[i].isInvited(client)){
-				sendMessage(client->getSocket(), ERR_INVITEONLYCHAN(client->getNickname(), args[0]));
-				return ;
-			}
-			if(_channels[i].getUserLimit() > 0)
-			{
-				if(_channels[i].getMembers().size() >= _channels[i].getUserLimit())
-				{
-					sendMessage(client->getSocket(), ERR_CHANNELISFULL(client->getNickname(), args[0]));
-					return ;
-				}
-			}
-			_channels[i].addMember(client);
-			//delete invitation if there is one
-			return ;
-		}
-	}
-	Channel newChannel(args[0]);
-	newChannel.addMember(client);
-	newChannel.addOperator(client);
-	_channels.push_back(newChannel);
+    // 2. Recherche du canal existant
+    for (size_t i = 0; i < _channels.size(); i++) {
+        if (_channels[i].getChannelName() == channelName) {
+            // 2a. Vérification du mode +i (invite-only)
+            if (_channels[i].isInviteOnly() && !_channels[i].isInvited(client)) {
+                sendMessage(client->getSocket(), ERR_INVITEONLYCHAN(client->getNickname(), channelName));
+                return;
+            }
+
+            // 2b. Vérification de la limite d'utilisateurs
+            if (_channels[i].getUserLimit() > 0 && _channels[i].getMembers().size() >= _channels[i].getUserLimit()) {
+                sendMessage(client->getSocket(), ERR_CHANNELISFULL(client->getNickname(), channelName));
+                return;
+            }
+
+            // 2c. Ajout du membre et suppression de l'invitation
+            _channels[i].addMember(client);
+            _channels[i].removeMember(client); // L'invitation est consommée
+
+            // Notification de JOIN à tous les membres
+            std::string joinMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@" + client->getHostname() +
+                                " JOIN " + channelName + "\r\n";
+            sendMessageToChannel(channelName, joinMsg);
+
+            // Envoi du topic actuel (si existant)
+            if (!_channels[i].getChannelTopic().empty()) {
+                sendMessage(client->getSocket(), ":" + client->getNickname() + " TOPICIS " + channelName + " :" + _channels[i].getChannelTopic() + "\r\n");
+            }
+            return;
+        }
+    }
+
+    // 3. Création d'un nouveau canal si inexistant
+    Channel newChannel(channelName);
+    newChannel.addMember(client);
+    newChannel.addOperator(client); // Le créateur devient opérateur
+    _channels.push_back(newChannel);
+
+    // Notification de JOIN (le client est seul dans le nouveau canal)
+    std::string joinMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@" + client->getHostname() +
+                         " JOIN " + channelName + "\r\n";
+    sendMessage(client->getSocket(), joinMsg);
 }
 
 void Server::sendMessageToChannel(const std::string &channelName, const std::string &message) {
@@ -674,4 +690,60 @@ Channel* Server::getChannelByName(const std::string &name)
 	    }
 	}
 	return NULL;
+}
+
+void Server::handleInvite(Client* inviter, const std::vector<std::string>& args) {
+    // 1. Vérification des paramètres
+    if (args.size() < 2) {
+        sendMessage(inviter->getSocket(), ERR_NEEDMOREPARAMS(inviter->getNickname(), "INVITE"));
+        std::cerr << "ERR: Not enough parameters for INVITE command\n";
+        return;
+    }
+
+    std::string targetNick = args[0];
+    std::string channelName = args[1];
+
+    // 2. Vérification de l'existence du canal et du client cible
+    Channel* channel = getChannelByName(channelName);
+    Client* target = getClientByNickname(targetNick);
+
+    if (!channel) {
+        sendMessage(inviter->getSocket(), ERR_NOSUCHCHANNEL(inviter->getNickname(), channelName));
+        std::cerr << "ERR: Channel " << channelName << " doesn't exist\n";
+        return;
+    }
+
+    if (!target) {
+        sendMessage(inviter->getSocket(), ERR_NOSUCHNICK(inviter->getNickname(), targetNick));
+        std::cerr << "ERR: Target user " << targetNick << " not found\n";
+        return;
+    }
+
+    // 3. Vérification des permissions (l'inviteur doit être opérateur)
+    if (!channel->isOperator(inviter)) {
+        sendMessage(inviter->getSocket(), ERR_CHANOPRIVSNEEDED(inviter->getNickname(), channelName));
+        std::cerr << "ERR: " << inviter->getNickname() << " is not operator in " << channelName << "\n";
+        return;
+    }
+
+    // 4. Vérification si l'utilisateur est déjà dans le canal
+    if (channel->isMember(target)) {
+        sendMessage(inviter->getSocket(), ERR_USERONCHANNEL(inviter->getNickname(), targetNick, channelName));
+        std::cerr << "ERR: " << targetNick << " is already in " << channelName << "\n";
+        return;
+    }
+
+    // 5. Envoi des notifications
+    // À l'invité
+    std::string inviteMsg = ":" + inviter->getNickname() + "!" + inviter->getUsername() + "@" + inviter->getHostname() +
+                          " INVITE " + targetNick + " " + channelName + "\r\n";
+    sendMessage(target->getSocket(), inviteMsg);
+    std::cout << "DEBUG: Sent to " << targetNick << ": " << inviteMsg;
+
+    // À l'inviteur (confirmation)
+    sendMessage(inviter->getSocket(), RPL_INVITING(inviter->getNickname(), targetNick, channelName));
+
+    // 6. Ajout à la liste des invités
+    channel->addInvitedClient(target);
+    std::cout << "DEBUG: " << targetNick << " added to invited list of " << channelName << "\n";
 }

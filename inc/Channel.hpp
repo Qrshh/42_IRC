@@ -36,6 +36,7 @@ public:
 	bool isInviteOnly() const {return inviteOnly;}
 	bool isInvited(Client *client) const ;
 	unsigned long getUserLimit() const {return userLimit;}
+    void addInvitedClient(Client* client);
 
 	void setUserLimit(int limit) {userLimit = limit;}
 	void setInviteOnly(bool mode) {inviteOnly = mode;}

@@ -23,7 +23,7 @@
 // //#define RPL_INVITING(client, target, channel) (": 341 " + client + " " + target + " " + channel + CRLF)
 #define ERR_INVITEONLYCHAN(nick, channel) (std::string(":") + SERVER_NAME + " 473 " + nick + " " + channel + " :Cannot join channel (+i)\r\n")
 // #define RPL_INVITE(from, target, channel) (std::string(":") + from + " INVITE " + target + " " + channel + "\r\n")
-// #define RPL_INVITING(from, target, channel) (std::string(":") + SERVER_NAME + " 341 " + from + " " + target + " " + channel + "\r\n")
+#define RPL_INVITING(from, target, channel) (std::string(":") + SERVER_NAME + " 341 " + from + " " + target + " " + channel + "\r\n")
 
 /*******************************/
 /*** ERROR MESSAGES - Error Codes ***/
@@ -42,7 +42,7 @@
 #define ERR_NICKINUSE(nickname) (": 433 " + nickname + " :Nickname is already in use" + CRLF)
 // #define ERR_NICKCHANGE(oldnickname, nickname) (": 436 " + oldnickname + " NICK " + nickname + CRLF)
 // #define ERR_USERNOTINCHANNEL(nickname, channelname) (": 441 " + nickname + " " + channelname + " :They aren't on that channel" + CRLF)
-// #define ERR_USERONCHANNEL(nickname, channel) (": 443 " + nickname + " " + channel + " :User already on channel" + CRLF)
+#define ERR_USERONCHANNEL(nickname, channel) (": 443 " + nickname + " " + channel + " :User already on channel" + CRLF)
 // #define ERR_ALREADYONCHANNEL(channel) (": 443 #" + channel + " :User already on channel" + CRLF)
 #define ERR_NOTREGISTERED(nickname) (": 451 " + nickname + " :You have not registered!" + CRLF)
 #define ERR_NOTENOUGHPARAM(nickname) (": 461 " + nickname + " :Not enough parameters." + CRLF)
