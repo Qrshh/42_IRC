@@ -17,6 +17,7 @@
 # include "Client.hpp"
 # include "Channel.hpp"
 # include "defineMessage.hpp"
+#include <bits/stdc++.h>
 
 # define BUFFER_SIZE 512
 
