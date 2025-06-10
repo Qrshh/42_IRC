@@ -230,6 +230,31 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
 		handlePing(client, args);
 		return ;
 	}
+	else if (command == "MODE"){
+		handleModes(client, args);
+		return ;
+	}
+}
+
+void Server::handleModes(Client *client, const std::vector<std::string>& args){
+	if(args[0][0] != '#')
+		return ;
+	
+	if(args.size() < 2){
+		sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE"));
+		return ;
+	}
+
+	Channel *channel = getChannelByName(args[0]);
+	if(!channel)
+	{
+		sendMessage(client->getSocket(), ERR_NOSUCHCHANNEL(client->getNickname(), args[0]));
+		return ;
+	}
+
+	if(channel)
+
+	
 }
 
 void Server::handlePing(Client* client, const std::vector<std::string>& args){
@@ -250,7 +275,6 @@ void Server::handlePing(Client* client, const std::vector<std::string>& args){
 
 void Server::handleCap(Client* client, const std::vector<std::string>& args) {
 	if (args.size() >= 1 && args[0] == "LS") {
-		// On indique qu’on ne supporte aucune capacité
 		std::string response = "CAP * LS :" CRLF;
 		sendMessage(client->getSocket(), response);
 	}
@@ -296,13 +320,6 @@ void Server::handleJoin(Client* client, const std::vector<std::string>& args){
 				}
 			}
 			_channels[i].addMember(client);
-			// //supprimer l'invitation que le client avait recu
-			// 	std::string joinMsg = ":" + client->getNickname() + "!" +
-			// 		client->getUsername() + "@" + client->getHostname() +
-			// 		" JOIN :" + channelName + "\r\n";
-	
-			// sendMessageToChannel(channelName, joinMsg);
-
 			return ;
 		}
 	}
@@ -395,7 +412,7 @@ void Server::handlePrivMessageChannel(Client *client, const std::vector<std::str
     }
 
     std::string targetChannel = params[0];
-    std::string message = joinParams(params);  // Tu peux définir joinParams pour concaténer les params à partir d’un index
+    std::string message = joinParams(params);
     if (!message.empty() && message[0] == ':')
         message = message.substr(1);
 
@@ -448,7 +465,7 @@ void Server::handlePrivMessageUser(Client *client, const std::string &target, co
                          + client->getUsername() + "@"
 						 + client->getHostname() 
                          + " PRIVMSG " + target 
-                         + " :" + message + "\r\n";  // <-- ICI le ":" est important
+                         + " :" + message + "\r\n";
 			
 			// Envoyer le message au client cible
 			std::cout << "Final message to send: [" << formattedMsg << "]";
@@ -525,5 +542,15 @@ std::string Server::joinParams(const std::vector<std::string>& args) {
         result = result.substr(1);
 
     return result;
+}
+
+Channel* Server::getChannelByName(const std::string& name){
+	for(std::vector<Channel>::iterator it = _channels.begin(); it != _channels.end(); it++)
+	{
+		Channel& chan = *it;
+		if(chan.getChannelName() == name)
+			return &chan;
+	}
+	return NULL;
 }
 
