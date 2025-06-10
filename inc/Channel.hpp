@@ -10,6 +10,7 @@ class Channel {
 private:
     std::string channelName;
     std::string channelTopic;
+    std::string password;
 	bool inviteOnly;
 	unsigned long userLimit;
     std::vector<Client*> channelMembers;
@@ -41,6 +42,10 @@ public:
 
 	void joinedMessage(Client *client);
 	void sendMessage(int fd, const std::string &message);
+
+    int findOperator(Client *client);
+
+    void setPassword(const std::string& pass) {password = pass;}
 
     void leaveChannel(Client* client); // déclaration seulement, pas d'implémentation ici
 };

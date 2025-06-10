@@ -103,3 +103,11 @@ bool Channel::isMember(Client* client) const {
     return false;
 }
 
+int Channel::findOperator(Client *client){
+	for(size_t i = 0;  i < channelOperators.size(); i++){
+		if(channelOperators[i] == client)
+			return 1;
+	}
+	return 0;
+}
+
