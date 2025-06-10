@@ -97,31 +97,35 @@ void Server::acceptNewClient() {
 
 void Server::handleClientInput(int fd) {
     char buffer[BUFFER_SIZE + 1];
+    memset(buffer, 0, sizeof(buffer));  // Initialisation explicite
     int bytesRead = recv(fd, buffer, BUFFER_SIZE, 0);
 
     if (bytesRead <= 0) {
-        // Gestion de la déconnexion
+        if (bytesRead < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            return;  // Pas de données disponibles pour le moment
+        }
         handleQuit(getClientByFd(fd));
         return;
     }
 
-	Client *client = getClientByFd(fd);
-	if(!client)
-		return ;
-
+    Client *client = getClientByFd(fd);
+    if (!client) return;
 
     buffer[bytesRead] = '\0';
-    std::string data(buffer);
+    client->getRecvBuffer() += buffer;  // Accumule les données
 
-    client->getRecvBuffer() += data;
-    
     size_t pos;
-	while ((pos = client->getRecvBuffer().find("\r\n")) != std::string::npos) {
-		std::string command = client->getRecvBuffer().substr(0, pos);
-		client->eraseRecvBuffer(pos + 2);
-		std::cout << "Received raw input: [" << data << "]" << std::endl;
-		splitCommand(client, command);
-	}
+    while ((pos = client->getRecvBuffer().find("\n")) != std::string::npos) {
+        std::string line = client->getRecvBuffer().substr(0, pos);
+        // Nettoie les \r restants
+        line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
+        client->eraseRecvBuffer(pos + 1);
+
+        if (!line.empty()) {
+            std::cout << "Received raw input: [" << line << "]" << std::endl;
+            splitCommand(client, line);
+        }
+    }
 }
 
 void Server::splitCommand(Client *client, std::string cmds)
@@ -413,51 +417,25 @@ void Server::handlePrivMessageChannel(Client *client, const std::vector<std::str
 }
 
 
-void Server::handlePrivMessageUser(Client *client, const std::string &target, const std::string &message)
-{
-	// Vérifier si la cible et le message sont vides
-	if (target.empty())
-	{
-		sendMessage(client->getSocket(), ERR_NORECIPIENT(client->getNickname(), "(PRIVMSG)"));
-		return;
-	}
+void Server::handlePrivMessageUser(Client *client, const std::string &target, const std::string &message) {
+    if (target.empty()) {
+        sendMessage(client->getSocket(), ERR_NORECIPIENT(client->getNickname(), "(PRIVMSG)"));
+        return;
+    }
 
-	if (message.empty())
-	{
-		sendMessage(client->getSocket(), ERR_NOTEXTTOSEND(client->getNickname()));
-		return;
-	}
+    Client *targetClient = getClientByNickname(target);
+    if (!targetClient) {
+        sendMessage(client->getSocket(), ERR_NOSUCHNICK(target, client->getNickname()));
+        return;
+    }
 
-	// Chercher le client cible dans la liste des clients
-	bool targetFound = false;
-	for (size_t i = 0; i < clients.size(); ++i)
-	{
-		std::cout << "searching : " << i << "\n";
-		if (clients[i]->getNickname() == target)
-		{
-			std::cout << "found\n";
-			// Format du message: :nickname!username@host PRIVMSG target :message
-			std::string formattedMsg = ":" + client->getNickname() + "!" 
-                         + client->getUsername() + "@localhost" 
-                        //  + client->getHostname() 
-                         + " PRIVMSG " + target 
-                         + " :" + message + "\r\n";  // <-- ICI le ":" est important
+    std::string formattedMsg = ":" + client->getNickname() + "!" 
+                            + client->getUsername() + "@" 
+                            + client->getHostname()  // Utilise le hostname réel
+                            + " PRIVMSG " + target 
+                            + " :" + message + "\r\n";
 
-			
-			// Envoyer le message au client cible
-			std::cout << "Final message to send: [" << formattedMsg << "]";
-			sendMessage(clients[i]->getSocket(), formattedMsg);
-			std::cout << clients[i]->getSocket() << "----" << formattedMsg << "-----" << std::endl;
-			targetFound = true;
-			break;
-		}
-	}
-	// Si la cible n'a pas été trouvée, envoyer une erreur
-	if (!targetFound)
-	{
-		sendMessage(client->getSocket(), ERR_NOSUCHNICK(target, client->getNickname()));
-		return;
-	}
+    sendMessage(targetClient->getSocket(), formattedMsg);
 }
 
 void Server::tryRegisterClient(Client* client) {
