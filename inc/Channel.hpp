@@ -46,6 +46,8 @@ public:
     int findOperator(Client *client);
 
     void setPassword(const std::string& pass) {password = pass;}
+    bool hasPassword() const {return !password.empty();}
+    const std::string& getPassword() const {return password;}
 
     void leaveChannel(Client* client); // déclaration seulement, pas d'implémentation ici
 };

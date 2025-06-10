@@ -243,106 +243,100 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
 
 void Server::handleModes(Client *client, const std::vector<std::string>& args)
 {
-	if(args[0][0] != '#')
-		return ;
-	if(args.size() < 2)
+	if (args[0][0] != '#')
+		return;
+	if (args.size() < 2)
 	{
 		sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE"));
-		return ;
+		return;
 	}
 	Channel *channel = getChannelByName(args[0]);
-	if(!channel)
+	if (!channel)
 	{
 		sendMessage(client->getSocket(), ERR_NOSUCHCHANNEL(client->getNickname(), args[0]));
-		return ;
+		return;
 	}
-
-	if(channel->findOperator(client) == 0){
+	if (channel->findOperator(client) == 0)
+	{
 		sendMessage(client->getSocket(), ERR_NOTOPERATOR(args[0]));
-		return ;
+		return;
 	}
 
 	std::string modes = args[1];
 	bool adding = true;
+	size_t param_index = 2;
 
-	for(size_t i = 0; i < modes.length(); i++){
-		if(modes[i] == '+')
+	for (size_t i = 0; i < modes.length(); i++)
+	{
+		char mode = modes[i];
+		if (mode == '+')
 			adding = true;
-		else if (modes[i] == '-')
+		else if (mode == '-')
 			adding = false;
 		else
 		{
-			size_t param_index = 2;
-			switch(modes[i])
+			switch (mode)
 			{
 				case 'i':
-				{
 					channel->setInviteOnly(adding);
-					break ;
-				}
-				case 't' :
-				{
-					//set topic restricted
-					break ;
-				}
-				case 'k' :
-				{
-					if(adding)
+					break;
+				case 't':
+					// channel->setTopicRestricted(adding);
+					break;
+				case 'k':
+					if (adding)
 					{
-						if(param_index >= args.size())
+						if (param_index >= args.size())
 						{
-							sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE + K"));
-							continue ;
+							sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE"));
+							continue;
 						}
 						channel->setPassword(args[param_index++]);
 					}
 					else
 						channel->setPassword("");
-					break ;
-				}
-				case 'o' :
-				{
-					if(param_index >= args.size())
+					break;
+				case 'o':
+					if (param_index >= args.size())
 					{
-						sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE + O"));
-						continue ;
+						sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE"));
+						continue;
 					}
-					Client* target = getClientByNickname(args[param_index]);
-					if(!target)
 					{
-						sendMessage(client->getSocket(), ERR_NOSUCHNICK(args[param_index - 1], client->getNickname()));
-						continue ;
-					}
-					if(adding)
-						channel->addOperator(target);
-					else
-						channel->removeOperator(target);
-					break ;
-				}
-				case 'l' :
-				{
-					if(adding)
-					{
-						if(param_index >= args.size())
+						std::string targetNick = args[param_index++];
+						Client* target = getClientByNickname(targetNick);
+						if (!target)
 						{
-							sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE + L"));
-							continue ;
+							sendMessage(client->getSocket(), ERR_NOSUCHNICK(client->getNickname(), targetNick));
+							continue;
+						}
+						if (adding)
+							channel->addOperator(target);
+						else
+							channel->removeOperator(target);
+					}
+					break;
+				case 'l':
+					if (adding)
+					{
+						if (param_index >= args.size())
+						{
+							sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE"));
+							continue;
 						}
 						channel->setUserLimit(std::atoi(args[param_index++].c_str()));
 					}
 					else
 						channel->setUserLimit(0);
-					break ;
-				}
-				default :
-				{
-					sendMessage(client->getSocket(), ERR_UNKNOWNMODE(client->getNickname(), channel->getChannelName(), std::string(1, modes[i])));
-					break ;
-				}
+					break;
+				default:
+					sendMessage(client->getSocket(), ERR_UNKNOWNMODE(client->getNickname(), channel->getChannelName(), std::string(1, mode)));
+					break;
 			}
 		}
 	}
 }
+
 	
 
 void Server::handlePing(Client* client, const std::vector<std::string>& args){
@@ -386,6 +380,9 @@ void Server::handleJoin(Client* client, const std::vector<std::string>& args){
     }
 
     std::string channelName = args[0];
+	std::string password;
+	if(args.size() > 1)
+		password = args[1];
     // Vérification du nom du canal (doit commencer par # ou &)
     if (channelName[0] != '#' && channelName[0] != '&') {
         sendMessage(client->getSocket(), ERR_CHANNELNOTFOUND(client->getNickname(), channelName));
@@ -399,6 +396,14 @@ void Server::handleJoin(Client* client, const std::vector<std::string>& args){
 			if(_channels[i].isInviteOnly() && !_channels[i].isInvited(client)){
 				sendMessage(client->getSocket(), ERR_INVITEONLYCHAN(client->getNickname(), args[0]));
 				return ;
+			}
+			if(_channels[i].hasPassword())
+			{
+				if(password.empty() || password != _channels[i].getPassword())
+				{
+					sendMessage(client->getSocket(), ERR_BADCHANNELKEY(client->getNickname(), channelName));
+					return ;
+				}
 			}
 			if(_channels[i].getUserLimit() > 0)
 			{
@@ -430,8 +435,6 @@ void Server::sendMessageToChannel(const std::string &channelName, const std::str
         }
     }
 }
-
-
 
 void Server::registerPassword(Client* client, const std::string buff)
 {

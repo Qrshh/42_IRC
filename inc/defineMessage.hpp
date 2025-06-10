@@ -49,7 +49,7 @@
 #define ERR_ALREADYREGISTERED(nickname) (": 462 " + nickname + " :You may not reregister !" + CRLF)
 // #define ERR_YOUREBANNEDCREEP(nickname) (": 465 " + nickname + " :You're banned from the server" + CRLF)
 // #define ERR_KEYSET(channelname) (": 467 #" + channelname + " Channel key already set. " + CRLF)
-// #define ERR_BADCHANNELKEY(nickname, channel) (": 475 " + nickname + " " + channel + " :Cannot join channel (+k)" + CRLF)
+#define ERR_BADCHANNELKEY(nickname, channel) (": 475 " + nickname + " " + channel + " :Cannot join channel (+k)" + CRLF)
 
 /* 400s - Channel/Operator Errors */
 #define ERR_UNKNOWNMODE(nickname, channelname, mode) (": 472 " + nickname + " #" + channelname + " " + mode + " :is not a recognised channel mode" + CRLF)
