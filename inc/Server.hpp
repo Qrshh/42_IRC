@@ -11,6 +11,7 @@
 # include <sys/socket.h>
 # include <fcntl.h>
 # include <unistd.h>
+# include <stdio.h>
 # include <iostream>
 # include <sstream>
 # include "Client.hpp"
