@@ -56,7 +56,7 @@ void Server::sendMessage(int fd, const std::string& message){
     if (ret == -1) {
         perror("send failed");
     } else {
-        std::cout << "Sent " << ret << " bytes" << std::endl;
+        std::cout << "topic " << ret << " bytes" << std::endl;
     }
 }
 
@@ -237,6 +237,7 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
 	else if (command == "MODE")
 	{
 		handleModes(client, args);
+		return ;
 	}
 }
 
@@ -408,13 +409,7 @@ void Server::handleJoin(Client* client, const std::vector<std::string>& args){
 				}
 			}
 			_channels[i].addMember(client);
-			// //supprimer l'invitation que le client avait recu
-			// 	std::string joinMsg = ":" + client->getNickname() + "!" +
-			// 		client->getUsername() + "@" + client->getHostname() +
-			// 		" JOIN :" + channelName + "\r\n";
-	
-			// sendMessageToChannel(channelName, joinMsg);
-
+			//delete invitation if there is one
 			return ;
 		}
 	}
@@ -659,11 +654,24 @@ void Server::handleTopic(Client *client, const std::vector<std::string> &args){
 		sendMessage(client->getSocket(), ERR_CHANOPRIVSNEEDED(client->getNickname(), channelName));
 		return; 
 	}
-	std::string newTopic = args[1];
+	std::string newTopic = joinParams(args);
 	if(newTopic[0] == ':'){
 		newTopic = newTopic.substr(1);
 	}
 	channel->setChannelTopic(newTopic);
 	std::string broadcastMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@" + client->getHostname() + " TOPIC " + channelName + " :" + newTopic + "\r\n";
 	sendMessageToChannel(channelName, broadcastMsg);
+}
+
+Channel* Server::getChannelByName(const std::string &name)
+{
+	for (std::vector<Channel>::iterator it = _channels.begin(); it != _channels.end(); ++it)
+	{
+	    Channel& chan = *it;
+	    if (chan.getChannelName() == name)
+	    {
+	        return &chan;
+	    }
+	}
+	return NULL;
 }

@@ -110,4 +110,3 @@ int Channel::findOperator(Client *client){
 	}
 	return 0;
 }
-
