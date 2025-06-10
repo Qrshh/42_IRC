@@ -252,7 +252,91 @@ void Server::handleModes(Client *client, const std::vector<std::string>& args){
 		return ;
 	}
 
-	if(channel)
+	if(channel->findOperator(client) == 0){
+		sendMessage(client->getSocket(), ERR_NOTOPERATOR(args[0]));
+		return ;
+	}
+
+	std::string modes = args[1];
+	bool adding = true;
+
+	for(size_t i = 0; i < modes.length(); i++){
+		if(modes[i] == '+')
+			adding = true;
+		else if (modes[i] == '-')
+			adding = false;
+		else
+		{
+			size_t param_index = 2;
+			switch(modes[i])
+			{
+				case 'i':
+				{
+					channel->setInviteOnly(adding);
+					break ;
+				}
+				case 't' :
+				{
+					//set topic restricted
+					break ;
+				}
+				case 'k' :
+				{
+					if(adding)
+					{
+						if(param_index >= args.size())
+						{
+							sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE + K"));
+							continue ;
+						}
+						channel->setPassword(args[param_index++]);
+					}
+					else
+						channel->setPassword("");
+					break ;
+				}
+				case 'o' :
+				{
+					if(param_index >= args.size())
+					{
+						sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE + O"));
+						continue ;
+					}
+					Client* target = getClientByNickname(args[param_index]);
+					if(!target)
+					{
+						sendMessage(client->getSocket(), ERR_NOSUCHNICK(args[param_index - 1], client->getNickname()));
+						continue ;
+					}
+					if(adding)
+						channel->addOperator(target);
+					else
+						channel->removeOperator(target);
+					break ;
+				}
+				case 'l' :
+				{
+					if(adding)
+					{
+						if(param_index >= args.size())
+						{
+							sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE + L"));
+							continue ;
+						}
+						channel->setUserLimit(std::atoi(args[param_index++].c_str()));
+					}
+					else
+						channel->setUserLimit(0);
+					break ;
+				}
+				default :
+				{
+					sendMessage(client->getSocket(), ERR_UNKNOWNMODE(client->getNickname(), channel->getChannelName(), std::string(1, modes[i])));
+					break ;
+				}
+			}
+		}
+	}
 
 	
 }
@@ -537,7 +621,6 @@ std::string Server::joinParams(const std::vector<std::string>& args) {
         result += args[i];
     }
 
-    // Supprimer le ':' initial s’il existe
     if (!result.empty() && result[0] == ':')
         result = result.substr(1);
 

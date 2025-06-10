@@ -52,9 +52,9 @@
 // #define ERR_BADCHANNELKEY(nickname, channel) (": 475 " + nickname + " " + channel + " :Cannot join channel (+k)" + CRLF)
 
 /* 400s - Channel/Operator Errors */
-// #define ERR_UNKNOWNMODE(nickname, channelname, mode) (": 472 " + nickname + " #" + channelname + " " + mode + " :is not a recognised channel mode" + CRLF)
+#define ERR_UNKNOWNMODE(nickname, channelname, mode) (": 472 " + nickname + " #" + channelname + " " + mode + " :is not a recognised channel mode" + CRLF)
 // #define ERR_NOPRIVILEGES(nickname) (": 481 " + nickname + " :Permission Denied- You're not an IRC operator" + CRLF)
-// #define ERR_NOTOPERATOR(channelname) (": 482 " + channelname + " :You're not a channel operator" + CRLF)
+#define ERR_NOTOPERATOR(channelname) (": 482 " + channelname + " :You're not a channel operator" + CRLF)
 // #define ERR_RESTRICTED(nickname) (": 483 " + nickname + " :You're restricted from using this server" + CRLF)
 // #define ERR_NOOPERHOST(nickname) (": 491 " + nickname + " :No O-lines for your host" + CRLF)
 
