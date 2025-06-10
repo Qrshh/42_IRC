@@ -55,7 +55,8 @@ public:
 	void handleUser(Client *client, const std::vector<std::string> &params);
 	void handleJoin(Client *client, const std::vector<std::string>& args);
 	void handlePing(Client* client, const std::vector<std::string>&args);
-	void Server::handleTopic(Client *client, const std::vector<std::string> &args);
+	void handleTopic(Client *client, const std::vector<std::string> &args);
+	void handleModes(Client *client, const std::vector<std::string> &args);
 
 	Client* getClientByFd(int fd);
 	Client* getClientByNickname(const std::string& nickname);

@@ -232,8 +232,23 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
 	}
 	else if(command == "TOPIC"){
 		handleTopic(client, args);
+		return ;
 	}
- 
+	else if (command == "MODE")
+	{
+		handleModes(client, args);
+	}
+}
+
+void Server::handleModes(Client *client, const std::vector<std::string>& args)
+{
+	if(args[0][0] != '#')
+		return ;
+	if(args.size() < 2)
+	{
+		sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE"));
+		return ;
+	}
 	Channel *channel = getChannelByName(args[0]);
 	if(!channel)
 	{
@@ -327,6 +342,7 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
 		}
 	}
 }
+	
 
 void Server::handlePing(Client* client, const std::vector<std::string>& args){
 	if(args.empty()){
