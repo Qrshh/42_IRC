@@ -59,7 +59,7 @@
 // #define ERR_NOOPERHOST(nickname) (": 491 " + nickname + " :No O-lines for your host" + CRLF)
 
 /*  - MODE Errors */
-// #define ERR_CHANOPRIVSNEEDED(nick, channel) ("482 " + nick + " " + channel + " :You're not channel operator\r\n")
+#define ERR_CHANOPRIVSNEEDED(nick, channel) ("482 " + nick + " " + channel + " :You're not channel operator\r\n")
 #define ERR_NEEDMOREPARAMS(nick, command) ("461 " + nick + " " + command + " :Not enough parameters\r\n")
 #define ERR_NOSUCHCHANNEL(nick, channel) ("403 " + nick + " " + channel + " :No such channel\r\n")
 #define ERR_CHANNELISFULL(nick, channel) ("471 " + nick + " " + channel + " :Cannot join channel (+l)\r\n")

@@ -230,21 +230,10 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
 		handlePing(client, args);
 		return ;
 	}
-	else if (command == "MODE"){
-		handleModes(client, args);
-		return ;
+	else if(command == "TOPIC"){
+		handleTopic(client, args);
 	}
-}
-
-void Server::handleModes(Client *client, const std::vector<std::string>& args){
-	if(args[0][0] != '#')
-		return ;
-	
-	if(args.size() < 2){
-		sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE"));
-		return ;
-	}
-
+ 
 	Channel *channel = getChannelByName(args[0]);
 	if(!channel)
 	{
@@ -337,8 +326,6 @@ void Server::handleModes(Client *client, const std::vector<std::string>& args){
 			}
 		}
 	}
-
-	
 }
 
 void Server::handlePing(Client* client, const std::vector<std::string>& args){
@@ -359,6 +346,7 @@ void Server::handlePing(Client* client, const std::vector<std::string>& args){
 
 void Server::handleCap(Client* client, const std::vector<std::string>& args) {
 	if (args.size() >= 1 && args[0] == "LS") {
+		// On indique qu’on ne supporte aucune capacité
 		std::string response = "CAP * LS :" CRLF;
 		sendMessage(client->getSocket(), response);
 	}
@@ -404,6 +392,13 @@ void Server::handleJoin(Client* client, const std::vector<std::string>& args){
 				}
 			}
 			_channels[i].addMember(client);
+			// //supprimer l'invitation que le client avait recu
+			// 	std::string joinMsg = ":" + client->getNickname() + "!" +
+			// 		client->getUsername() + "@" + client->getHostname() +
+			// 		" JOIN :" + channelName + "\r\n";
+	
+			// sendMessageToChannel(channelName, joinMsg);
+
 			return ;
 		}
 	}
@@ -496,7 +491,7 @@ void Server::handlePrivMessageChannel(Client *client, const std::vector<std::str
     }
 
     std::string targetChannel = params[0];
-    std::string message = joinParams(params);
+    std::string message = joinParams(params);  // Tu peux définir joinParams pour concaténer les params à partir d’un index
     if (!message.empty() && message[0] == ':')
         message = message.substr(1);
 
@@ -549,7 +544,7 @@ void Server::handlePrivMessageUser(Client *client, const std::string &target, co
                          + client->getUsername() + "@"
 						 + client->getHostname() 
                          + " PRIVMSG " + target 
-                         + " :" + message + "\r\n";
+                         + " :" + message + "\r\n";  // <-- ICI le ":" est important
 			
 			// Envoyer le message au client cible
 			std::cout << "Final message to send: [" << formattedMsg << "]";
@@ -627,13 +622,32 @@ std::string Server::joinParams(const std::vector<std::string>& args) {
     return result;
 }
 
-Channel* Server::getChannelByName(const std::string& name){
-	for(std::vector<Channel>::iterator it = _channels.begin(); it != _channels.end(); it++)
-	{
-		Channel& chan = *it;
-		if(chan.getChannelName() == name)
-			return &chan;
+void Server::handleTopic(Client *client, const std::vector<std::string> &args){
+	if(args.empty()){
+		sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "TOPIC"));
+		return;
 	}
-	return NULL;
+	std::string channelName = args[0];
+	Channel *channel = getChannelByName(channelName);
+	if(!channel){
+		sendMessage(client->getSocket(), ERR_NOSUCHCHANNEL(client->getNickname(), channelName));
+		return;
+	}
+	if(args.size() == 1){
+		std::string currentTopic = channel->getChannelTopic();
+		std::string response = ":" + client->getNickname() + "TOPICIS" + channelName + " :" + currentTopic + "\r\n";
+		sendMessage(client->getSocket(), response);
+		return;
+	}
+	if(!channel->isOperator(client)){
+		sendMessage(client->getSocket(), ERR_CHANOPRIVSNEEDED(client->getNickname(), channelName));
+		return; 
+	}
+	std::string newTopic = args[1];
+	if(newTopic[0] == ':'){
+		newTopic = newTopic.substr(1);
+	}
+	channel->setChannelTopic(newTopic);
+	std::string broadcastMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@" + client->getHostname() + " TOPIC " + channelName + " :" + newTopic + "\r\n";
+	sendMessageToChannel(channelName, broadcastMsg);
 }
-
