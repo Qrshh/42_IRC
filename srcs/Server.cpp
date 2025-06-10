@@ -52,8 +52,14 @@ void Server::run() {
 }
 
 void Server::sendMessage(int fd, const std::string& message){
-	send(fd, message.c_str(), message.length(), 0);
+    ssize_t ret = send(fd, message.c_str(), message.length(), 0);
+    if (ret == -1) {
+        perror("send failed");
+    } else {
+        std::cout << "Sent " << ret << " bytes" << std::endl;
+    }
 }
+
 
 Client* Server::getClientByFd(int fd) {
     for (size_t i = 0; i < clients.size(); ++i) {
@@ -362,8 +368,8 @@ void Server::handleUser(Client *client, const std::vector<std::string> &params){
 		return ;
 	}
 	client->setUsername(params[0]);
-	client->setHostname(params[2]);
-	client->setServername(params[1]);
+	client->setHostname(params[1]);
+	client->setServername(params[2]);
 	std::string realname;
 
 	for(size_t i = 3; i < params.size(); i++){
@@ -437,19 +443,21 @@ void Server::handlePrivMessageUser(Client *client, const std::string &target, co
 		{
 			std::cout << "found\n";
 			// Format du message: :nickname!username@host PRIVMSG target :message
-			std::string formattedMsg = ":" + client->getNickname() + "!" 
-                         + client->getUsername() + "@localhost" 
-                        //  + client->getHostname() 
+			std::string formattedMsg = ":" + client->getNickname() + "!~" 
+                         + client->getUsername() + "@"
+						 + client->getHostname() 
                          + " PRIVMSG " + target 
                          + " :" + message + "\r\n";  // <-- ICI le ":" est important
-
 			
 			// Envoyer le message au client cible
 			std::cout << "Final message to send: [" << formattedMsg << "]";
 			sendMessage(clients[i]->getSocket(), formattedMsg);
 			std::cout << clients[i]->getSocket() << "----" << formattedMsg << "-----" << std::endl;
+			for (size_t i = 0; i < formattedMsg.size(); ++i)
+				std::cout << std::hex << (int)(unsigned char)formattedMsg[i] << " ";
+			std::cout << std::endl;
 			targetFound = true;
-			break;
+			return ;
 		}
 	}
 	// Si la cible n'a pas été trouvée, envoyer une erreur
