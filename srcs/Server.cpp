@@ -265,14 +265,14 @@ void Server::handleModes(Client *client, const std::vector<std::string>& args)
 	std::string modes = args[1];
 	bool adding = true;
 	size_t param_index = 2;
-
+	
 	for (size_t i = 0; i < modes.length(); i++)
 	{
 		char mode = modes[i];
 		if (mode == '+')
-			adding = true;
+		adding = true;
 		else if (mode == '-')
-			adding = false;
+		adding = false;
 		else
 		{
 			switch (mode)
@@ -281,7 +281,7 @@ void Server::handleModes(Client *client, const std::vector<std::string>& args)
 					channel->setInviteOnly(adding);
 					break;
 				case 't':
-					// channel->setTopicRestricted(adding);
+					channel->setTopicRestricted(adding);
 					break;
 				case 'k':
 					if (adding)
@@ -369,6 +369,7 @@ void Server::handleJoin(Client* client, const std::vector<std::string>& args){
 
 	std::cout << "Tentative de JOIN par " << client->getNickname() << " dans " << args[0] << std::endl;
 
+
 	if (!client->isRegistered()) {
 		sendMessage(client->getSocket(), ERR_NOTREGISTERED(client->getNickname()));
 		return;
@@ -414,6 +415,9 @@ void Server::handleJoin(Client* client, const std::vector<std::string>& args){
 				}
 			}
 			_channels[i].addMember(client);
+			if (!_channels[i].getChannelTopic().empty()) {
+				sendMessage(client->getSocket(), RPL_TOPICIS(client->getNickname(), _channels[i].getChannelName(), _channels[i].getChannelTopic()));
+			}
 			//delete invitation if there is one
 			return ;
 		}
@@ -637,33 +641,39 @@ std::string Server::joinParams(const std::vector<std::string>& args) {
 }
 
 void Server::handleTopic(Client *client, const std::vector<std::string> &args){
-	if(args.empty()){
-		sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "TOPIC"));
-		return;
+	if(args.size() < 2){
+		sendMessage(client->getSocket(), ERR_NOTENOUGHPARAM(client->getNickname()));
+		return ;
 	}
-	std::string channelName = args[0];
-	Channel *channel = getChannelByName(channelName);
-	if(!channel){
-		sendMessage(client->getSocket(), ERR_NOSUCHCHANNEL(client->getNickname(), channelName));
-		return;
+
+	Channel *channel = getChannelByName(args[0]);
+	if(!channel)
+	{
+		sendMessage(client->getSocket(), ERR_CHANNELNOTFOUND(client->getNickname(), args[0]));
+		return ;
 	}
-	if(args.size() == 1){
+
+	if (args.size() == 1) {
 		std::string currentTopic = channel->getChannelTopic();
-		std::string response = ":" + client->getNickname() + "TOPICIS" + channelName + " :" + currentTopic + "\r\n";
-		sendMessage(client->getSocket(), response);
+			sendMessage(client->getSocket(), RPL_TOPICIS(client->getNickname(), channel->getChannelName(), currentTopic));
 		return;
 	}
-	if(!channel->isOperator(client)){
-		sendMessage(client->getSocket(), ERR_CHANOPRIVSNEEDED(client->getNickname(), channelName));
-		return; 
+
+	std::string topic = joinParams(args);
+
+	if(channel->isTopicRestricted())
+	{
+		if(channel->findOperator(client) == 1)
+		{
+			channel->setChannelTopic(topic);
+			channel->topicChange();
+			return ;
+		}
+		sendMessage(client->getSocket(), ERR_NOTOPERATOR(channel->getChannelName()));
+		return ;
 	}
-	std::string newTopic = joinParams(args);
-	if(newTopic[0] == ':'){
-		newTopic = newTopic.substr(1);
-	}
-	channel->setChannelTopic(newTopic);
-	std::string broadcastMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@" + client->getHostname() + " TOPIC " + channelName + " :" + newTopic + "\r\n";
-	sendMessageToChannel(channelName, broadcastMsg);
+	channel->setChannelTopic(topic);
+	channel->topicChange();
 }
 
 Channel* Server::getChannelByName(const std::string &name)

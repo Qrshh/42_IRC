@@ -1,7 +1,8 @@
 #include "Channel.hpp"
 #include "Client.hpp"
+#include "defineMessage.hpp"
 
-Channel::Channel(const std::string &name) : channelName(name), inviteOnly(false), userLimit(0) {}
+Channel::Channel(const std::string &name) : channelName(name), channelTopic(""), inviteOnly(false), topicRestricted(false), userLimit(0) {}
 
 const std::string &Channel::getChannelName() const {
     return channelName;
@@ -109,4 +110,10 @@ int Channel::findOperator(Client *client){
 			return 1;
 	}
 	return 0;
+}
+
+void Channel::topicChange()
+{
+	for (size_t i = 0; i < channelMembers.size(); i++)
+        sendMessage(channelMembers[i]->getSocket(), RPL_TOPICIS(channelMembers[i]->getNickname(), getChannelName(), getChannelTopic()));
 }
