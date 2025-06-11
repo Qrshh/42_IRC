@@ -248,106 +248,100 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
 
 void Server::handleModes(Client *client, const std::vector<std::string>& args)
 {
-	if(args[0][0] != '#')
-		return ;
-	if(args.size() < 2)
+	if (args[0][0] != '#')
+		return;
+	if (args.size() < 2)
 	{
 		sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE"));
-		return ;
+		return;
 	}
 	Channel *channel = getChannelByName(args[0]);
-	if(!channel)
+	if (!channel)
 	{
 		sendMessage(client->getSocket(), ERR_NOSUCHCHANNEL(client->getNickname(), args[0]));
-		return ;
+		return;
 	}
-
-	if(channel->findOperator(client) == 0){
+	if (channel->findOperator(client) == 0)
+	{
 		sendMessage(client->getSocket(), ERR_NOTOPERATOR(args[0]));
-		return ;
+		return;
 	}
 
 	std::string modes = args[1];
 	bool adding = true;
-
-	for(size_t i = 0; i < modes.length(); i++){
-		if(modes[i] == '+')
-			adding = true;
-		else if (modes[i] == '-')
-			adding = false;
+	size_t param_index = 2;
+	
+	for (size_t i = 0; i < modes.length(); i++)
+	{
+		char mode = modes[i];
+		if (mode == '+')
+		adding = true;
+		else if (mode == '-')
+		adding = false;
 		else
 		{
-			size_t param_index = 2;
-			switch(modes[i])
+			switch (mode)
 			{
 				case 'i':
-				{
 					channel->setInviteOnly(adding);
-					break ;
-				}
-				case 't' :
-				{
-					//set topic restricted
-					break ;
-				}
-				case 'k' :
-				{
-					if(adding)
+					break;
+				case 't':
+					channel->setTopicRestricted(adding);
+					break;
+				case 'k':
+					if (adding)
 					{
-						if(param_index >= args.size())
+						if (param_index >= args.size())
 						{
-							sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE + K"));
-							continue ;
+							sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE"));
+							continue;
 						}
 						channel->setPassword(args[param_index++]);
 					}
 					else
 						channel->setPassword("");
-					break ;
-				}
-				case 'o' :
-				{
-					if(param_index >= args.size())
+					break;
+				case 'o':
+					if (param_index >= args.size())
 					{
-						sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE + O"));
-						continue ;
+						sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE"));
+						continue;
 					}
-					Client* target = getClientByNickname(args[param_index]);
-					if(!target)
 					{
-						sendMessage(client->getSocket(), ERR_NOSUCHNICK(args[param_index - 1], client->getNickname()));
-						continue ;
-					}
-					if(adding)
-						channel->addOperator(target);
-					else
-						channel->removeOperator(target);
-					break ;
-				}
-				case 'l' :
-				{
-					if(adding)
-					{
-						if(param_index >= args.size())
+						std::string targetNick = args[param_index++];
+						Client* target = getClientByNickname(targetNick);
+						if (!target)
 						{
-							sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE + L"));
-							continue ;
+							sendMessage(client->getSocket(), ERR_NOSUCHNICK(client->getNickname(), targetNick));
+							continue;
+						}
+						if (adding)
+							channel->addOperator(target);
+						else
+							channel->removeOperator(target);
+					}
+					break;
+				case 'l':
+					if (adding)
+					{
+						if (param_index >= args.size())
+						{
+							sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE"));
+							continue;
 						}
 						channel->setUserLimit(std::atoi(args[param_index++].c_str()));
 					}
 					else
 						channel->setUserLimit(0);
-					break ;
-				}
-				default :
-				{
-					sendMessage(client->getSocket(), ERR_UNKNOWNMODE(client->getNickname(), channel->getChannelName(), std::string(1, modes[i])));
-					break ;
-				}
+					break;
+				default:
+					sendMessage(client->getSocket(), ERR_UNKNOWNMODE(client->getNickname(), channel->getChannelName(), std::string(1, mode)));
+					break;
 			}
 		}
 	}
 }
+
 	
 
 void Server::handlePing(Client* client, const std::vector<std::string>& args){
@@ -391,53 +385,51 @@ void Server::handleJoin(Client* client, const std::vector<std::string>& args) {
     }
 
     std::string channelName = args[0];
-    if (channelName[0] != '#' && channelName[0] != '&') {
+
+	std::string password;
+	if(args.size() > 1)
+		password = args[1];
+    // Vérification du nom du canal (doit commencer par # ou &)
+   if (channelName[0] != '#' && channelName[0] != '&') {
         sendMessage(client->getSocket(), ERR_NOSUCHCHANNEL(client->getNickname(), channelName));
         return;
     }
-
-    // 2. Recherche du canal existant
-    for (size_t i = 0; i < _channels.size(); i++) {
-        if (_channels[i].getChannelName() == channelName) {
-            // 2a. Vérification du mode +i (invite-only)
-            if (_channels[i].isInviteOnly() && !_channels[i].isInvited(client)) {
-                sendMessage(client->getSocket(), ERR_INVITEONLYCHAN(client->getNickname(), channelName));
-                return;
-            }
-
-            // 2b. Vérification de la limite d'utilisateurs
-            if (_channels[i].getUserLimit() > 0 && _channels[i].getMembers().size() >= _channels[i].getUserLimit()) {
-                sendMessage(client->getSocket(), ERR_CHANNELISFULL(client->getNickname(), channelName));
-                return;
-            }
-
-            // 2c. Ajout du membre et suppression de l'invitation
-            _channels[i].addMember(client);
-            _channels[i].removeMember(client); // L'invitation est consommée
-
-            // Notification de JOIN à tous les membres
-            std::string joinMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@" + client->getHostname() +
-                                " JOIN " + channelName + "\r\n";
-            sendMessageToChannel(channelName, joinMsg);
-
-            // Envoi du topic actuel (si existant)
-            if (!_channels[i].getChannelTopic().empty()) {
-                sendMessage(client->getSocket(), ":" + client->getNickname() + " TOPICIS " + channelName + " :" + _channels[i].getChannelTopic() + "\r\n");
-            }
-            return;
-        }
-    }
-
-    // 3. Création d'un nouveau canal si inexistant
-    Channel newChannel(channelName);
-    newChannel.addMember(client);
-    newChannel.addOperator(client); // Le créateur devient opérateur
-    _channels.push_back(newChannel);
-
-    // Notification de JOIN (le client est seul dans le nouveau canal)
-    std::string joinMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@" + client->getHostname() +
-                         " JOIN " + channelName + "\r\n";
-    sendMessage(client->getSocket(), joinMsg);
+	for(size_t i = 0; i < _channels.size(); i++)
+	{
+		if(_channels[i].getChannelName() == args[0])
+		{
+			if(_channels[i].isInviteOnly() && !_channels[i].isInvited(client)){
+				sendMessage(client->getSocket(), ERR_INVITEONLYCHAN(client->getNickname(), args[0]));
+				return ;
+			}
+			if(_channels[i].hasPassword())
+			{
+				if(password.empty() || password != _channels[i].getPassword())
+				{
+					sendMessage(client->getSocket(), ERR_BADCHANNELKEY(client->getNickname(), channelName));
+					return ;
+				}
+			}
+			if(_channels[i].getUserLimit() > 0)
+			{
+				if(_channels[i].getMembers().size() >= _channels[i].getUserLimit())
+				{
+					sendMessage(client->getSocket(), ERR_CHANNELISFULL(client->getNickname(), args[0]));
+					return ;
+				}
+			}
+			_channels[i].addMember(client);
+			if (!_channels[i].getChannelTopic().empty()) {
+				sendMessage(client->getSocket(), RPL_TOPICIS(client->getNickname(), _channels[i].getChannelName(), _channels[i].getChannelTopic()));
+			}
+			//delete invitation if there is one
+			return ;
+		}
+	}
+	Channel newChannel(args[0]);
+	newChannel.addMember(client);
+	newChannel.addOperator(client);
+	_channels.push_back(newChannel);
 }
 
 void Server::sendMessageToChannel(const std::string &channelName, const std::string &message) {
@@ -451,8 +443,6 @@ void Server::sendMessageToChannel(const std::string &channelName, const std::str
         }
     }
 }
-
-
 
 void Server::registerPassword(Client* client, const std::string buff)
 {
@@ -655,33 +645,39 @@ std::string Server::joinParams(const std::vector<std::string>& args) {
 }
 
 void Server::handleTopic(Client *client, const std::vector<std::string> &args){
-	if(args.empty()){
-		sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "TOPIC"));
-		return;
+	if(args.size() < 2){
+		sendMessage(client->getSocket(), ERR_NOTENOUGHPARAM(client->getNickname()));
+		return ;
 	}
-	std::string channelName = args[0];
-	Channel *channel = getChannelByName(channelName);
-	if(!channel){
-		sendMessage(client->getSocket(), ERR_NOSUCHCHANNEL(client->getNickname(), channelName));
-		return;
+
+	Channel *channel = getChannelByName(args[0]);
+	if(!channel)
+	{
+		sendMessage(client->getSocket(), ERR_CHANNELNOTFOUND(client->getNickname(), args[0]));
+		return ;
 	}
-	if(args.size() == 1){
+
+	if (args.size() == 1) {
 		std::string currentTopic = channel->getChannelTopic();
-		std::string response = ":" + client->getNickname() + "TOPICIS" + channelName + " :" + currentTopic + "\r\n";
-		sendMessage(client->getSocket(), response);
+			sendMessage(client->getSocket(), RPL_TOPICIS(client->getNickname(), channel->getChannelName(), currentTopic));
 		return;
 	}
-	if(!channel->isOperator(client)){
-		sendMessage(client->getSocket(), ERR_CHANOPRIVSNEEDED(client->getNickname(), channelName));
-		return; 
+
+	std::string topic = joinParams(args);
+
+	if(channel->isTopicRestricted())
+	{
+		if(channel->findOperator(client) == 1)
+		{
+			channel->setChannelTopic(topic);
+			channel->topicChange();
+			return ;
+		}
+		sendMessage(client->getSocket(), ERR_NOTOPERATOR(channel->getChannelName()));
+		return ;
 	}
-	std::string newTopic = joinParams(args);
-	if(newTopic[0] == ':'){
-		newTopic = newTopic.substr(1);
-	}
-	channel->setChannelTopic(newTopic);
-	std::string broadcastMsg = ":" + client->getNickname() + "!" + client->getUsername() + "@" + client->getHostname() + " TOPIC " + channelName + " :" + newTopic + "\r\n";
-	sendMessageToChannel(channelName, broadcastMsg);
+	channel->setChannelTopic(topic);
+	channel->topicChange();
 }
 
 Channel* Server::getChannelByName(const std::string &name)
