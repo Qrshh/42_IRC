@@ -244,6 +244,11 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
 		handleInvite(client, args);
 		return;
 	}
+	else if(command == "KICK")
+	{
+		handleKick(client, args);
+		return;
+	}
 }
 
 void Server::handleModes(Client *client, const std::vector<std::string>& args)
@@ -714,4 +719,34 @@ void Server::handleInvite(Client* invite, const std::vector<std::string>& args){
 	std::string msg = ":" + invite->getNickname() + " INVITE " + targetNick + " " + channelName + "\r\n";
 	sendMessage(target->getSocket(), msg);
 	sendMessage(invite->getSocket(), RPL_INVITING(invite->getNickname(), targetNick, channelName));
+}
+
+void Server::handleKick(Client* kicker, const std::vector<std::string>& args){
+	if(args.size() < 2){
+        sendMessage(kicker->getSocket(), ERR_NEEDMOREPARAMS(kicker->getNickname(), "KICK"));
+		return;
+	}
+	std::string channelName = args[0];
+	std::string targetNick = args[1];
+	std::string reason = (args.size() > 2) ? joinParams(args).substr(1) : "Kicked by operator";
+
+	Channel* channel = getChannelByName(channelName);
+	if(!channel){
+		sendMessage(kicker->getSocket(), ERR_NOSUCHCHANNEL(kicker->getNickname(), channelName));
+		return;
+	}
+	if(!channel->isOperator(kicker)){
+		sendMessage(kicker->getSocket(), ERR_CHANOPRIVSNEEDED(kicker->getNickname(), channelName));
+		return;
+	}
+	Client *target = getClientByNickname(targetNick);
+	if(!target || !channel->isMember(target)){
+		sendMessage(kicker->getSocket(), ERR_USERNOTINCHANNEL(kicker->getNickname(), channelName));
+		return;
+	}
+	std::string kickMsg = ":" + kicker->getNickname() + "!" + kicker->getUsername() + "@" + kicker->getHostname() + " KICK " + channelName + " " + targetNick + " :" + reason + "\r\n";
+	sendMessageToChannel(channelName, kickMsg);
+	channel->removeMember(target);
+	target->leaveChannel(channel);
+	std::cout << "DEBUG: " << targetNick << " kicked from " << channelName << " by " << kicker->getNickname() <<std::endl;
 }

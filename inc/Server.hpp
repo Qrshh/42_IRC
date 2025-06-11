@@ -58,7 +58,7 @@ public:
 	void handleTopic(Client *client, const std::vector<std::string> &args);
 	void handleModes(Client *client, const std::vector<std::string> &args);
 	void handleInvite(Client* invite, const std::vector<std::string>& args);
-
+	void handleKick(Client* kicker, const std::vector<std::string>& args);
 	Client* getClientByFd(int fd);
 	Client* getClientByNickname(const std::string& nickname);
 	Channel *getChannelByName(const std::string& name);
