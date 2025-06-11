@@ -10,6 +10,7 @@ Client::~Client(){
 		(*it)->removeMember(this);
 	}
 	_channels.clear();
+	std::cout << "Client " << _socket << " deleted" << std::endl;
 }
 
 int Client::getSocket() const {

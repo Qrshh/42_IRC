@@ -28,10 +28,13 @@ Server::Server(int port, const std::string &password) : _password(password) {
 }
 
 Server::~Server() {
-	for(std::vector<Client*>::iterator it = clients.begin(); it != clients.end(); ++it)
+	for(std::vector<Client*>::iterator it = clients.begin(); it != clients.end(); ++it) {
 		delete *it;
+	}
+	clients.clear();
 	close(_serverFd);
 }
+
 
 void Server::run() {
 	while (true) {
@@ -52,6 +55,7 @@ void Server::run() {
 }
 
 void Server::sendMessage(int fd, const std::string& message){
+	std::cout << "[sendMessage] socket=" << fd << " | message=" << message << std::endl;
     ssize_t ret = send(fd, message.c_str(), message.length(), 0);
     if (ret == -1) {
         perror("send failed");
@@ -103,14 +107,25 @@ void Server::acceptNewClient() {
 
 void Server::handleClientInput(int fd) {
     char buffer[BUFFER_SIZE + 1];
-    memset(buffer, 0, sizeof(buffer));  // Initialisation explicite
+    memset(buffer, 0, sizeof(buffer));
     int bytesRead = recv(fd, buffer, BUFFER_SIZE, 0);
 
     if (bytesRead <= 0) {
         if (bytesRead < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-            return;  // Pas de données disponibles pour le moment
+            return;
         }
-        handleQuit(getClientByFd(fd));
+
+        Client *client = getClientByFd(fd);
+        if (client) {
+            handleQuit(client);  // Supprime client
+            // Supprimer pollfd pour ce fd
+            for (size_t i = 0; i < _pollFds.size(); ++i) {
+                if (_pollFds[i].fd == fd) {
+                    _pollFds.erase(_pollFds.begin() + i);
+                    break;
+                }
+            }
+        }
         return;
     }
 
@@ -118,12 +133,11 @@ void Server::handleClientInput(int fd) {
     if (!client) return;
 
     buffer[bytesRead] = '\0';
-    client->getRecvBuffer() += buffer;  // Accumule les données
+    client->getRecvBuffer() += buffer;
 
     size_t pos;
     while ((pos = client->getRecvBuffer().find("\n")) != std::string::npos) {
         std::string line = client->getRecvBuffer().substr(0, pos);
-        // Nettoie les \r restants
         line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
         client->eraseRecvBuffer(pos + 1);
 
@@ -133,6 +147,8 @@ void Server::handleClientInput(int fd) {
         }
     }
 }
+
+
 
 void Server::splitCommand(Client *client, std::string cmds)
 {
@@ -563,7 +579,12 @@ void Server::handlePrivMessageUser(Client *client, const std::string &target, co
 		+ client->getUsername() + "@"
 		+ client->getHostname() 
 		+ " PRIVMSG " + target 
-		+ " :" + message + "\r\n"; 
+		+ " :" + message + "\r\n";
+		
+	std::cout << "[DEBUG] target nickname: " << target << std::endl;
+	std::cout << "[DEBUG] resolved client nickname: " << targetClient->getNickname() << std::endl;
+	std::cout << "[DEBUG] resolved socket: " << targetClient->getSocket() << std::endl;
+
 
 	sendMessage(targetClient->getSocket(), formattedMsg);
 }
@@ -583,33 +604,42 @@ void Server::tryRegisterClient(Client* client) {
 }
 
 void Server::handleQuit(Client *client) {
-    if (!client) return;
-    
-    std::cout << "Client <" << client->getSocket() << "> Disconnected" << std::endl;
-    
-    // Retirer le client des channels
-    for (size_t i = 0; i < _channels.size(); ++i) {
-        _channels[i].removeMember(client);
-    }
-    
-    // Fermer la connexion
-    close(client->getSocket());
-    
-    // Retirer le client de la liste
-    for (size_t i = 0; i < clients.size(); ++i) {
-        if (clients[i]->getSocket() == client->getSocket()) {
-            clients.erase(clients.begin() + i);
-            break;
-        }
-    }
-    // Retirer le fd de poll
-    for (size_t i = 0; i < _pollFds.size(); ++i) {
-        if (_pollFds[i].fd == client->getSocket()) {
-            _pollFds.erase(_pollFds.begin() + i);
-            break;
-        }
-    }
+	if (!client)
+		return;
+
+	int fd = client->getSocket();
+	std::cout << "Client " << fd << " quit." << std::endl;
+
+	// Fermer la socket
+	close(fd);
+
+	// Supprimer du pollFds
+	for (std::vector<struct pollfd>::iterator it = _pollFds.begin(); it != _pollFds.end(); ++it) {
+		if (it->fd == fd) {
+			_pollFds.erase(it);
+			break;
+		}
+	}
+
+	// Supprimer le client de tous les channels
+	const std::set<Channel*>& joinedChannels = client->getChannels();
+	for (std::set<Channel*>::const_iterator it = joinedChannels.begin(); it != joinedChannels.end(); ++it) {
+		(*it)->removeMember(client);
+	}
+
+	// Supprimer de la liste des clients
+	for (std::vector<Client*>::iterator it = clients.begin(); it != clients.end(); ++it) {
+		if (*it == client) {
+			clients.erase(it);
+			break;
+		}
+	}
+
+	// Supprimer l'objet client
+	delete client;
 }
+
+
 
 std::string Server::joinParams(const std::vector<std::string>& args) {
     std::string result;
