@@ -239,6 +239,11 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
 		handleModes(client, args);
 		return ;
 	}
+	else if(command == "INVITE")
+	{
+		handleInvite(client, args);
+		return;
+	}
 }
 
 void Server::handleModes(Client *client, const std::vector<std::string>& args)
@@ -365,31 +370,30 @@ void Server::handleCap(Client* client, const std::vector<std::string>& args) {
 		std::cout << "CAP END recu" << std::endl;
 }
 
-void Server::handleJoin(Client* client, const std::vector<std::string>& args){
+void Server::handleJoin(Client* client, const std::vector<std::string>& args) {
+    std::cout << "Tentative de JOIN par " << client->getNickname() << " dans " << (args.empty() ? "" : args[0]) << std::endl;
 
-	std::cout << "Tentative de JOIN par " << client->getNickname() << " dans " << args[0] << std::endl;
-
-
-	if (!client->isRegistered()) {
-		sendMessage(client->getSocket(), ERR_NOTREGISTERED(client->getNickname()));
-		return;
-	}
-	
-	if (args.empty() || args[0] == ":" || args[0].empty()) {
-        sendMessage(client->getSocket(), ERR_NOTENOUGHPARAM(client->getNickname()));
+    // 1. Vérifications de base
+    if (!client->isRegistered()) {
+        sendMessage(client->getSocket(), ERR_NOTREGISTERED(client->getNickname()));
+        return;
+    }
+    
+    if (args.empty() || args[0].empty() || args[0] == ":") {
+        sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "JOIN"));
         return;
     }
 
     std::string channelName = args[0];
+
 	std::string password;
 	if(args.size() > 1)
 		password = args[1];
     // Vérification du nom du canal (doit commencer par # ou &)
-    if (channelName[0] != '#' && channelName[0] != '&') {
-        sendMessage(client->getSocket(), ERR_CHANNELNOTFOUND(client->getNickname(), channelName));
+   if (channelName[0] != '#' && channelName[0] != '&') {
+        sendMessage(client->getSocket(), ERR_NOSUCHCHANNEL(client->getNickname(), channelName));
         return;
     }
-
 	for(size_t i = 0; i < _channels.size(); i++)
 	{
 		if(_channels[i].getChannelName() == args[0])
@@ -687,4 +691,27 @@ Channel* Server::getChannelByName(const std::string &name)
 	    }
 	}
 	return NULL;
+}
+void Server::handleInvite(Client* invite, const std::vector<std::string>& args){
+	if(args.size() < 2){
+		sendMessage(invite->getSocket(), ERR_NEEDMOREPARAMS(invite->getNickname(), "INVITE"));
+		return;
+	}
+	std::string targetNick = args[0];
+	std::string channelName = args[1];
+	
+	Channel* channel = getChannelByName(channelName);
+	Client* target = getClientByNickname(targetNick);
+	if(!channel || !target){
+		sendMessage(invite->getSocket(), ERR_NOSUCHNICK(invite->getNickname(), targetNick));
+		return;
+	}
+	if(!channel->isOperator(invite)){
+		sendMessage(invite->getSocket(), ERR_CHANOPRIVSNEEDED(invite->getNickname(), channelName));
+		return;
+	}
+	channel->addInvitedClient(target);
+	std::string msg = ":" + invite->getNickname() + " INVITE " + targetNick + " " + channelName + "\r\n";
+	sendMessage(target->getSocket(), msg);
+	sendMessage(invite->getSocket(), RPL_INVITING(invite->getNickname(), targetNick, channelName));
 }

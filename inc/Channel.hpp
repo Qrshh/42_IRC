@@ -25,6 +25,7 @@ public:
     const std::string &getChannelTopic() const;
     const std::vector<Client*> &getMembers() const {return channelMembers;}
     void setChannelTopic(const std::string &newTopic);
+    const std::vector<Client*>& getInvitedClients() const { return invitedClients; }
 
 	void channelMessage(const std::vector<std::string>& params, Client *client);
 
@@ -37,6 +38,7 @@ public:
 	bool isInviteOnly() const {return inviteOnly;}
 	bool isInvited(Client *client) const ;
 	unsigned long getUserLimit() const {return userLimit;}
+    void addInvitedClient(Client* client);
 
 	void setUserLimit(int limit) {userLimit = limit;}
 	void setInviteOnly(bool mode) {inviteOnly = mode;}

@@ -112,8 +112,16 @@ int Channel::findOperator(Client *client){
 	return 0;
 }
 
+
+void Channel::addInvitedClient(Client* client){
+    if (!isInvited(client)) {
+        invitedClients.push_back(client);
+    }
+}
+
 void Channel::topicChange()
 {
 	for (size_t i = 0; i < channelMembers.size(); i++)
         sendMessage(channelMembers[i]->getSocket(), RPL_TOPICIS(channelMembers[i]->getNickname(), getChannelName(), getChannelTopic()));
 }
+
