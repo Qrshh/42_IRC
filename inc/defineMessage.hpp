@@ -11,7 +11,7 @@
 #define RPL_CONNECTED(nickname, username, hostname) (":" SERVER_NAME " 001 " + nickname + " :Welcome to the Internet Relay Network " + nickname + "!" + username + "@" + hostname + CRLF)
 // #define RPL_CHANNELMODES(nickname, channelname, modes) (": 324 " + nickname + " #" + channelname + " " + modes + CRLF)
 // #define RPL_CREATIONTIME(nickname, channelname, creationtime) (": 329 " + nickname + " #" + channelname + " " + creationtime + CRLF)
-// #define RPL_TOPICIS(nickname, channelname, topic) (": 332 " + nickname + " " + channelname + " :" + topic + CRLF)
+#define RPL_TOPICIS(nickname, channelname, topic) (": 332 " + nickname + " " + channelname + " :" + topic + CRLF)
 // #define RPL_NAMREPLY(nickname, channelname, clientslist) (": 353 " + nickname + " @ #" + channelname + " :" + clientslist + CRLF)
 // #define RPL_ENDOFNAMES(nickname, channelname) (": 366 " + nickname + " #" + channelname + " :END of /NAMES list" + CRLF)
 
@@ -49,7 +49,7 @@
 #define ERR_ALREADYREGISTERED(nickname) (": 462 " + nickname + " :You may not reregister !" + CRLF)
 // #define ERR_YOUREBANNEDCREEP(nickname) (": 465 " + nickname + " :You're banned from the server" + CRLF)
 // #define ERR_KEYSET(channelname) (": 467 #" + channelname + " Channel key already set. " + CRLF)
-// #define ERR_BADCHANNELKEY(nickname, channel) (": 475 " + nickname + " " + channel + " :Cannot join channel (+k)" + CRLF)
+#define ERR_BADCHANNELKEY(nickname, channel) (": 475 " + nickname + " " + channel + " :Cannot join channel (+k)" + CRLF)
 
 /* 400s - Channel/Operator Errors */
 #define ERR_UNKNOWNMODE(nickname, channelname, mode) (": 472 " + nickname + " #" + channelname + " " + mode + " :is not a recognised channel mode" + CRLF)

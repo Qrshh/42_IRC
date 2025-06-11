@@ -9,9 +9,10 @@ class Client; // forward declaration, suffit pour pointeurs
 class Channel {
 private:
     std::string channelName;
-    std::string channelTopic;
     std::string password;
+    std::string channelTopic;
 	bool inviteOnly;
+    bool topicRestricted;
 	unsigned long userLimit;
     std::vector<Client*> channelMembers;
     std::vector<Client*> channelOperators;
@@ -46,6 +47,12 @@ public:
     int findOperator(Client *client);
 
     void setPassword(const std::string& pass) {password = pass;}
+    bool hasPassword() const {return !password.empty();}
+    const std::string& getPassword() const {return password;}
+
+    void setTopicRestricted(bool mode){topicRestricted = mode;}
+    bool isTopicRestricted(){return topicRestricted;}
+    void topicChange();
 
     void leaveChannel(Client* client); // déclaration seulement, pas d'implémentation ici
 };
