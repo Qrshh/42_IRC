@@ -422,7 +422,8 @@ void Server::handleJoin(Client* client, const std::vector<std::string>& args) {
 			if (!_channels[i].getChannelTopic().empty()) {
 				sendMessage(client->getSocket(), RPL_TOPICIS(client->getNickname(), _channels[i].getChannelName(), _channels[i].getChannelTopic()));
 			}
-			//delete invitation if there is one
+			_channels[i].removeInvite(client);
+			
 			return ;
 		}
 	}
@@ -542,50 +543,26 @@ void Server::handlePrivMessageChannel(Client *client, const std::vector<std::str
 
 
 void Server::handlePrivMessageUser(Client *client, const std::string &target, const std::string &message) {
-    if (target.empty()) {
-        sendMessage(client->getSocket(), ERR_NORECIPIENT(client->getNickname(), "(PRIVMSG)"));
-        return;
-    }
-
-    Client *targetClient = getClientByNickname(target);
-    if (!targetClient) {
-        sendMessage(client->getSocket(), ERR_NOSUCHNICK(target, client->getNickname()));
-        return;
-    }
-  
-	// Chercher le client cible dans la liste des clients
-	bool targetFound = false;
-	for (size_t i = 0; i < clients.size(); ++i)
-	{
-		std::cout << "searching : " << i << "\n";
-		if (clients[i]->getNickname() == target)
-		{
-			std::cout << "found\n";
-			// Format du message: :nickname!username@host PRIVMSG target :message
-			std::string formattedMsg = ":" + client->getNickname() + "!~" 
-                         + client->getUsername() + "@"
-						 + client->getHostname() 
-                         + " PRIVMSG " + target 
-                         + " :" + message + "\r\n";  // <-- ICI le ":" est important
-			
-			// Envoyer le message au client cible
-			std::cout << "Final message to send: [" << formattedMsg << "]";
-			sendMessage(clients[i]->getSocket(), formattedMsg);
-			std::cout << clients[i]->getSocket() << "----" << formattedMsg << "-----" << std::endl;
-			for (size_t i = 0; i < formattedMsg.size(); ++i)
-				std::cout << std::hex << (int)(unsigned char)formattedMsg[i] << " ";
-			std::cout << std::endl;
-			targetFound = true;
-			return ;
-		}
+	if (target.empty()) {
+		sendMessage(client->getSocket(), ERR_NORECIPIENT(client->getNickname(), "(PRIVMSG)"));
+		return;
 	}
-	// Si la cible n'a pas été trouvée, envoyer une erreur
-	if (!targetFound)
-	{
+
+	Client *targetClient = getClientByNickname(target);
+	if (!targetClient) {
 		sendMessage(client->getSocket(), ERR_NOSUCHNICK(target, client->getNickname()));
 		return;
 	}
+
+	std::string formattedMsg = ":" + client->getNickname() + "!~" 
+		+ client->getUsername() + "@"
+		+ client->getHostname() 
+		+ " PRIVMSG " + target 
+		+ " :" + message + "\r\n"; 
+
+	sendMessage(targetClient->getSocket(), formattedMsg);
 }
+
 
 void Server::tryRegisterClient(Client* client) {
 	if (!_password.empty() && !client->hasSentPass())
@@ -620,7 +597,6 @@ void Server::handleQuit(Client *client) {
             break;
         }
     }
-    
     // Retirer le fd de poll
     for (size_t i = 0; i < _pollFds.size(); ++i) {
         if (_pollFds[i].fd == client->getSocket()) {
@@ -712,6 +688,6 @@ void Server::handleInvite(Client* invite, const std::vector<std::string>& args){
 	}
 	channel->addInvitedClient(target);
 	std::string msg = ":" + invite->getNickname() + " INVITE " + targetNick + " " + channelName + "\r\n";
-	sendMessage(target->getSocket(), msg);
+	sendMessage(target->getSocket(), RPL_INVITE(invite->getNickname(), targetNick, channelName));
 	sendMessage(invite->getSocket(), RPL_INVITING(invite->getNickname(), targetNick, channelName));
 }

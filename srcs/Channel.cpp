@@ -119,6 +119,13 @@ void Channel::addInvitedClient(Client* client){
     }
 }
 
+void Channel::removeInvite(Client* client){
+	std::vector<Client*>::iterator it = std::find(invitedClients.begin(), invitedClients.end(), client);
+	if(it != invitedClients.end())
+		invitedClients.erase(it);
+	return ;
+}
+
 void Channel::topicChange()
 {
 	for (size_t i = 0; i < channelMembers.size(); i++)

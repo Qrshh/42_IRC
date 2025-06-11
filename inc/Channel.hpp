@@ -37,6 +37,7 @@ public:
 	bool isMember(Client *client) const ;
 	bool isInviteOnly() const {return inviteOnly;}
 	bool isInvited(Client *client) const ;
+    void removeInvite(Client *client);
 	unsigned long getUserLimit() const {return userLimit;}
     void addInvitedClient(Client* client);
 

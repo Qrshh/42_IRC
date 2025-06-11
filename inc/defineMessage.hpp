@@ -22,7 +22,7 @@
 // #define RPL_CHANGEMODE(hostname, channelname, mode, arguments) (":" + hostname + " MODE #" + channelname + " " + mode + " " + arguments + CRLF)
 // //#define RPL_INVITING(client, target, channel) (": 341 " + client + " " + target + " " + channel + CRLF)
 #define ERR_INVITEONLYCHAN(nick, channel) (std::string(":") + SERVER_NAME + " 473 " + nick + " " + channel + " :Cannot join channel (+i)\r\n")
-// #define RPL_INVITE(from, target, channel) (std::string(":") + from + " INVITE " + target + " " + channel + "\r\n")
+#define RPL_INVITE(from, target, channel) (std::string(":") + from + " INVITE " + target + " " + channel + "\r\n")
 #define RPL_INVITING(from, target, channel) (std::string(":") + SERVER_NAME + " 341 " + from + " " + target + " " + channel + "\r\n")
 
 /*******************************/
