@@ -41,7 +41,7 @@
 #define ERR_ERRONEUSNICK(nickname) (": 432 " + nickname + " :Erroneous nickname" + CRLF)
 #define ERR_NICKINUSE(nickname) (": 433 " + nickname + " :Nickname is already in use" + CRLF)
 // #define ERR_NICKCHANGE(oldnickname, nickname) (": 436 " + oldnickname + " NICK " + nickname + CRLF)
-// #define ERR_USERNOTINCHANNEL(nickname, channelname) (": 441 " + nickname + " " + channelname + " :They aren't on that channel" + CRLF)
+#define ERR_USERNOTINCHANNEL(nickname, channelname) (": 441 " + nickname + " " + channelname + " :They aren't on that channel" + CRLF)
 #define ERR_USERONCHANNEL(nickname, channel) (": 443 " + nickname + " " + channel + " :User already on channel" + CRLF)
 // #define ERR_ALREADYONCHANNEL(channel) (": 443 #" + channel + " :User already on channel" + CRLF)
 #define ERR_NOTREGISTERED(nickname) (": 451 " + nickname + " :You have not registered!" + CRLF)
