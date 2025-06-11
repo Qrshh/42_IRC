@@ -239,6 +239,11 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
 		handleModes(client, args);
 		return ;
 	}
+	else if(command == "INVITE")
+	{
+		handleInvite(client, args);
+		return;
+	}
 }
 
 void Server::handleModes(Client *client, const std::vector<std::string>& args)
@@ -691,59 +696,26 @@ Channel* Server::getChannelByName(const std::string &name)
 	}
 	return NULL;
 }
-
-void Server::handleInvite(Client* inviter, const std::vector<std::string>& args) {
-    // 1. Vérification des paramètres
-    if (args.size() < 2) {
-        sendMessage(inviter->getSocket(), ERR_NEEDMOREPARAMS(inviter->getNickname(), "INVITE"));
-        std::cerr << "ERR: Not enough parameters for INVITE command\n";
-        return;
-    }
-
-    std::string targetNick = args[0];
-    std::string channelName = args[1];
-
-    // 2. Vérification de l'existence du canal et du client cible
-    Channel* channel = getChannelByName(channelName);
-    Client* target = getClientByNickname(targetNick);
-
-    if (!channel) {
-        sendMessage(inviter->getSocket(), ERR_NOSUCHCHANNEL(inviter->getNickname(), channelName));
-        std::cerr << "ERR: Channel " << channelName << " doesn't exist\n";
-        return;
-    }
-
-    if (!target) {
-        sendMessage(inviter->getSocket(), ERR_NOSUCHNICK(inviter->getNickname(), targetNick));
-        std::cerr << "ERR: Target user " << targetNick << " not found\n";
-        return;
-    }
-
-    // 3. Vérification des permissions (l'inviteur doit être opérateur)
-    if (!channel->isOperator(inviter)) {
-        sendMessage(inviter->getSocket(), ERR_CHANOPRIVSNEEDED(inviter->getNickname(), channelName));
-        std::cerr << "ERR: " << inviter->getNickname() << " is not operator in " << channelName << "\n";
-        return;
-    }
-
-    // 4. Vérification si l'utilisateur est déjà dans le canal
-    if (channel->isMember(target)) {
-        sendMessage(inviter->getSocket(), ERR_USERONCHANNEL(inviter->getNickname(), targetNick, channelName));
-        std::cerr << "ERR: " << targetNick << " is already in " << channelName << "\n";
-        return;
-    }
-
-    // 5. Envoi des notifications
-    // À l'invité
-    std::string inviteMsg = ":" + inviter->getNickname() + "!" + inviter->getUsername() + "@" + inviter->getHostname() +
-                          " INVITE " + targetNick + " " + channelName + "\r\n";
-    sendMessage(target->getSocket(), inviteMsg);
-    std::cout << "DEBUG: Sent to " << targetNick << ": " << inviteMsg;
-
-    // À l'inviteur (confirmation)
-    sendMessage(inviter->getSocket(), RPL_INVITING(inviter->getNickname(), targetNick, channelName));
-
-    // 6. Ajout à la liste des invités
-    channel->addInvitedClient(target);
-    std::cout << "DEBUG: " << targetNick << " added to invited list of " << channelName << "\n";
+void Server::handleInvite(Client* invite, const std::vector<std::string>& args){
+	if(args.size() < 2){
+		sendMessage(invite->getSocket(), ERR_NEEDMOREPARAMS(invite->getNickname(), "INVITE"));
+		return;
+	}
+	std::string targetNick = args[0];
+	std::string channelName = args[1];
+	
+	Channel* channel = getChannelByName(channelName);
+	Client* target = getClientByNickname(targetNick);
+	if(!channel || !target){
+		sendMessage(invite->getSocket(), ERR_NOSUCHNICK(invite->getNickname(), targetNick));
+		return;
+	}
+	if(!channel->isOperator(invite)){
+		sendMessage(invite->getSocket(), ERR_CHANOPRIVSNEEDED(invite->getNickname(), channelName));
+		return;
+	}
+	channel->addInvitedClient(target);
+	std::string msg = ":" + invite->getNickname() + " INVITE " + targetNick + " " + channelName + "\r\n";
+	sendMessage(target->getSocket(), msg);
+	sendMessage(invite->getSocket(), RPL_INVITING(invite->getNickname(), targetNick, channelName));
 }

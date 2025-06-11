@@ -24,6 +24,7 @@ public:
     const std::string &getChannelTopic() const;
     const std::vector<Client*> &getMembers() const {return channelMembers;}
     void setChannelTopic(const std::string &newTopic);
+    const std::vector<Client*>& getInvitedClients() const { return invitedClients; }
 
 	void channelMessage(const std::vector<std::string>& params, Client *client);
 
