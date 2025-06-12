@@ -29,6 +29,8 @@ class Client{
 
 		std::set<Channel*> _channels;
 
+		bool disconnected;
+
 	public:
 		Client(int socket);
 		~Client();
@@ -93,4 +95,7 @@ class Client{
 		std::string& getRecvBuffer();
 		void clearRecvBuffer();
 		void eraseRecvBuffer(size_t pos);
+
+		void markDisconnected(){disconnected = true;}
+		bool isDisconnected() const {return disconnected;}
 };

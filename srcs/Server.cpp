@@ -29,7 +29,11 @@ Server::Server(int port, const std::string &password) : _password(password) {
 
 Server::~Server() {
 	for(std::vector<Client*>::iterator it = clients.begin(); it != clients.end(); ++it) {
-		delete *it;
+		if(*it)
+		{
+			close((*it)->getSocket());
+			delete *it;
+		}
 	}
 	clients.clear();
 	close(_serverFd);
@@ -51,6 +55,7 @@ void Server::run() {
 					handleClientInput(_pollFds[i].fd);
 			}
 		}
+		cleanupDisconnectedClients();
 	}
 }
 
@@ -110,27 +115,24 @@ void Server::handleClientInput(int fd) {
     memset(buffer, 0, sizeof(buffer));
     int bytesRead = recv(fd, buffer, BUFFER_SIZE, 0);
 
+    Client *client = getClientByFd(fd);  // 🔁 On le récupère UNE FOIS
+    if (!client) return;
+
     if (bytesRead <= 0) {
         if (bytesRead < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
             return;
         }
 
-        Client *client = getClientByFd(fd);
-        if (client) {
-            handleQuit(client);  // Supprime client
-            // Supprimer pollfd pour ce fd
-            for (size_t i = 0; i < _pollFds.size(); ++i) {
-                if (_pollFds[i].fd == fd) {
-                    _pollFds.erase(_pollFds.begin() + i);
-                    break;
-                }
+        handleQuit(client);  // Supprime le client
+
+        for (size_t i = 0; i < _pollFds.size(); ++i) {
+            if (_pollFds[i].fd == fd) {
+                _pollFds.erase(_pollFds.begin() + i);
+                break;
             }
         }
-        return;
+        return; // ⛔ Ne pas utiliser client après ça
     }
-
-    Client *client = getClientByFd(fd);
-    if (!client) return;
 
     buffer[bytesRead] = '\0';
     client->getRecvBuffer() += buffer;
@@ -147,7 +149,6 @@ void Server::handleClientInput(int fd) {
         }
     }
 }
-
 
 
 void Server::splitCommand(Client *client, std::string cmds)
@@ -419,6 +420,10 @@ void Server::handleJoin(Client* client, const std::vector<std::string>& args) {
 	{
 		if(_channels[i].getChannelName() == args[0])
 		{
+			if(client->isInChannel(channelName)){
+				sendMessage(client->getSocket(), ERR_ALREADYONCHANNEL(channelName));
+				return ;
+			}
 			if(_channels[i].isInviteOnly() && !_channels[i].isInvited(client)){
 				sendMessage(client->getSocket(), ERR_INVITEONLYCHAN(client->getNickname(), args[0]));
 				return ;
@@ -470,10 +475,8 @@ void Server::registerPassword(Client* client, const std::string buff)
 {
 	if(buff != _password)
 	{
-		sendMessage(client->getSocket(), "WRONG PASSWORD !!!!");
-
-		close(client->getSocket());
-		delete client;
+		sendMessage(client->getSocket(), ERR_PASSWDMISMATCH(client->getNickname()));
+		handleQuit(client);
 		return ;
 	}
 	client->setSentPass(true);
@@ -611,8 +614,7 @@ void Server::handleQuit(Client *client) {
 	std::cout << "Client " << fd << " quit." << std::endl;
 
 	// Fermer la socket
-	close(fd);
-
+	
 	// Supprimer du pollFds
 	for (std::vector<struct pollfd>::iterator it = _pollFds.begin(); it != _pollFds.end(); ++it) {
 		if (it->fd == fd) {
@@ -620,23 +622,15 @@ void Server::handleQuit(Client *client) {
 			break;
 		}
 	}
-
+	
 	// Supprimer le client de tous les channels
 	const std::set<Channel*>& joinedChannels = client->getChannels();
 	for (std::set<Channel*>::const_iterator it = joinedChannels.begin(); it != joinedChannels.end(); ++it) {
 		(*it)->removeMember(client);
 	}
-
-	// Supprimer de la liste des clients
-	for (std::vector<Client*>::iterator it = clients.begin(); it != clients.end(); ++it) {
-		if (*it == client) {
-			clients.erase(it);
-			break;
-		}
-	}
-
-	// Supprimer l'objet client
-	delete client;
+	
+	// signifier au serveur que le client est deconnecte :
+	client->markDisconnected();
 }
 
 
@@ -734,7 +728,20 @@ void Server::handleKick(Client* kicker, const std::vector<std::string>& args){
 	}
 	std::string channelName = args[0];
 	std::string targetNick = args[1];
-	std::string reason = (args.size() > 2) ? joinParams(args).substr(1) : "Kicked by operator";
+	std::string reason;
+	if (args.size() > 2) {
+		reason.clear();
+		for (size_t i = 2; i < args.size(); ++i) {
+			if (i > 2)
+				reason += " ";
+			reason += args[i];
+		}
+		if (!reason.empty() && reason[0] == ':')
+			reason = reason.substr(1);
+	} else {
+		reason = "Kicked by operator";
+	}
+
 
 	Channel* channel = getChannelByName(channelName);
 	if(!channel){
@@ -755,4 +762,20 @@ void Server::handleKick(Client* kicker, const std::vector<std::string>& args){
 	channel->removeMember(target);
 	target->leaveChannel(channel);
 	std::cout << "DEBUG: " << targetNick << " kicked from " << channelName << " by " << kicker->getNickname() <<std::endl;
+}
+
+void Server::cleanupDisconnectedClients() {
+	for(std::vector<Client*>::iterator it = clients.begin(); it != clients.end();){
+		if(*it && (*it)->isDisconnected()){
+			std::cout << "Client " << (*it)->getSocket() << " deleted" << std::endl;
+			//faire quitter le client tout ses channels
+			for(std::vector<Channel>::iterator it2 = _channels.begin(); it2 != _channels.end(); it2++){
+				it2->leaveChannel(*it);
+			}
+			delete *it;
+			it = clients.erase(it);
+		} else {
+			++it;
+		}
+	}
 }

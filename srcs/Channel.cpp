@@ -60,6 +60,7 @@ void Channel::addMember(Client* client) {
     for (size_t i = 0; i < channelMembers.size(); i++) {
         if (channelMembers[i] == client) {
             std::cout << "Client " << client->getNickname() << " déjà membre, pas d'ajout" << std::endl;
+			sendMessage(client->getSocket(), ERR_ALREADYONCHANNEL(getChannelName()));
             return;
         }
     }

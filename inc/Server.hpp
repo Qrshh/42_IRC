@@ -62,6 +62,8 @@ public:
 	Client* getClientByFd(int fd);
 	Client* getClientByNickname(const std::string& nickname);
 	Channel *getChannelByName(const std::string& name);
+
+	void cleanupDisconnectedClients();
 	
 };
 
