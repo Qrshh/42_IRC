@@ -4,27 +4,32 @@ Server::Server(int port, const std::string &password) : _password(password) {
 	_serverFd = socket(AF_INET, SOCK_STREAM, 0);
 	if (_serverFd < 0)
 		throw std::runtime_error("socket() failed");
+	
+	try{
+		fcntl(_serverFd, F_SETFL, O_NONBLOCK);
 
-	fcntl(_serverFd, F_SETFL, O_NONBLOCK);
+		struct sockaddr_in addr;
+		addr.sin_family = AF_INET;
+		addr.sin_addr.s_addr = INADDR_ANY;
+		addr.sin_port = htons(port);
 
-	struct sockaddr_in addr;
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = INADDR_ANY;
-	addr.sin_port = htons(port);
+		if (bind(_serverFd, (struct sockaddr*)&addr, sizeof(addr)) < 0)
+			throw std::runtime_error("bind() failed");
 
-	if (bind(_serverFd, (struct sockaddr*)&addr, sizeof(addr)) < 0)
-		throw std::runtime_error("bind() failed");
+		if (listen(_serverFd, SOMAXCONN) < 0)
+			throw std::runtime_error("listen() failed");
 
-	if (listen(_serverFd, SOMAXCONN) < 0)
-		throw std::runtime_error("listen() failed");
+		struct pollfd pfd;
+		pfd.fd = _serverFd;
+		pfd.events = POLLIN;
+		pfd.revents = 0;
+		_pollFds.push_back(pfd);
 
-	struct pollfd pfd;
-	pfd.fd = _serverFd;
-	pfd.events = POLLIN;
-	pfd.revents = 0;
-	_pollFds.push_back(pfd);
-
-	std::cout << "Server listening on port " << port << std::endl;
+		std::cout << "Server listening on port " << port << std::endl;
+	} catch(...){
+		close (_serverFd);
+		throw ;
+	}
 }
 
 Server::~Server() {
@@ -716,7 +721,6 @@ void Server::handleInvite(Client* invite, const std::vector<std::string>& args){
 		return;
 	}
 	channel->addInvitedClient(target);
-	std::string msg = ":" + invite->getNickname() + " INVITE " + targetNick + " " + channelName + "\r\n";
 	sendMessage(target->getSocket(), RPL_INVITE(invite->getNickname(), targetNick, channelName));
 	sendMessage(invite->getSocket(), RPL_INVITING(invite->getNickname(), targetNick, channelName));
 }
