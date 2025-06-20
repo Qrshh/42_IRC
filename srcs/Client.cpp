@@ -2,7 +2,7 @@
 #include "Channel.hpp"
 
 Client::Client(int socket) : _socket(socket), _registered(false), _sentPass(false), _sentNick(false),
-								_sentUser(false), _isOperator(false) {}
+								_sentUser(false), _isOperator(false), disconnected(false) {}
 
 Client::~Client(){
 	close(_socket);
