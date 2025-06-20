@@ -125,19 +125,17 @@ void Server::handleClientInput(int fd) {
     if (!client) return;
 
     if (bytesRead <= 0) {
-        if (bytesRead < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-            return;
-        }
+		if(fd){
+			handleQuit(client);  // Supprime le client
 
-        handleQuit(client);  // Supprime le client
-
-        for (size_t i = 0; i < _pollFds.size(); ++i) {
-            if (_pollFds[i].fd == fd) {
-                _pollFds.erase(_pollFds.begin() + i);
-                break;
-            }
-        }
-        return; // ⛔ Ne pas utiliser client après ça
+        	for (size_t i = 0; i < _pollFds.size(); ++i) {
+            	if (_pollFds[i].fd == fd) {
+                	_pollFds.erase(_pollFds.begin() + i);
+                	break;
+            	}
+        	}
+        return;
+		}
     }
 
     buffer[bytesRead] = '\0';
