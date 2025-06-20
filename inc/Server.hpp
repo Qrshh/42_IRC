@@ -64,6 +64,8 @@ public:
 	Channel *getChannelByName(const std::string& name);
 
 	void cleanupDisconnectedClients();
+
+	void removeChannel(const std::string& name);
 	
 };
 

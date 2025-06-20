@@ -133,3 +133,4 @@ void Channel::topicChange()
         sendMessage(channelMembers[i]->getSocket(), RPL_TOPICIS(channelMembers[i]->getNickname(), getChannelName(), getChannelTopic()));
 }
 
+

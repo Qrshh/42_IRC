@@ -40,6 +40,7 @@ Server::~Server() {
 			delete *it;
 		}
 	}
+
 	clients.clear();
 	close(_serverFd);
 }
@@ -632,6 +633,10 @@ void Server::handleQuit(Client *client) {
 	const std::set<Channel*>& joinedChannels = client->getChannels();
 	for (std::set<Channel*>::const_iterator it = joinedChannels.begin(); it != joinedChannels.end(); ++it) {
 		(*it)->removeMember(client);
+
+		if((*it)->isEmpty()){
+			removeChannel((*it)->getChannelName());
+		}
 	}
 	
 	// signifier au serveur que le client est deconnecte :
@@ -780,6 +785,17 @@ void Server::cleanupDisconnectedClients() {
 			it = clients.erase(it);
 		} else {
 			++it;
+		}
+	}
+}
+
+void Server::removeChannel(const std::string& name){
+	std::cout << "Deleting channel : " << name << std::endl;
+
+	for(std::vector<Channel>::iterator it = _channels.begin(); it != _channels.end(); it++){
+		if(it->getChannelName() == name){
+			_channels.erase(it);
+			break ;
 		}
 	}
 }

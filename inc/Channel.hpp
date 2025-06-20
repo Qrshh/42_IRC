@@ -40,6 +40,9 @@ public:
     void removeInvite(Client *client);
 	unsigned long getUserLimit() const {return userLimit;}
     void addInvitedClient(Client* client);
+    bool isEmpty() const{
+        return channelMembers.empty();
+    }
 
 	void setUserLimit(int limit) {userLimit = limit;}
 	void setInviteOnly(bool mode) {inviteOnly = mode;}
