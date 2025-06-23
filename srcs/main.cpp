@@ -3,55 +3,47 @@
 #include <cstring>
 #include <cerrno>
 #include <csignal>
+#include "Client.hpp"
+#include "Channel.hpp"
+#include "Server.hpp"
 
-void handleSignal(int signal){
-	const char* signalName;
-	if(signal == SIGINT)
-		signalName = "SIGINT (ctrl + c)";
-	else if (signal == SIGTSTP)
-		signalName = "SIGTSTP (ctrl + z)";
-	else 
-		signalName = "unknow";
+Server* g_server = NULL;
 
-	std::cout << "\nSignal " << signalName << " recceived, closing server ..." << std::endl;
-
-
-	//TODO: Appliquer le signal au serveur
+void handleSigint(int sig) {
+    (void)sig;
+    std::cout << "\nArrêt du serveur demandé (SIGINT)" << std::endl;
+    if (g_server)
+        delete g_server;
+    std::exit(0);
 }
 
-int main(int ac, char **av){
-	if(ac != 3)
-	{
-		std::cerr << "Usage: ./irc <port> <password>" << std::endl;
-		return EXIT_FAILURE;
-	}
+int main(int argc, char **argv)
+{
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <port> <mot_de_passe>" << std::endl;
+        return 1;
+    }
 
-	char *endptr;	
-	long port = std::strtol(av[1], &endptr, 10);
+    int port = std::atoi(argv[1]);
+    if (port <= 0 || port > 65535) {
+        std::cerr << "Port invalide." << std::endl;
+        return 1;
+    }
 
-	if(*endptr != '\0' || port <= 0 || port > 65535)
-	{
-		std::cerr << "Invalid port. Port must be between 1 and 65535." << std::endl;
-		return EXIT_FAILURE;
-	}
+    std::string password = argv[2];
 
-	std::string password = av[2];
-	// std::cout << "Starting IRC server on port " << port << " with password : " << password << std::endl;
+    std::signal(SIGINT, handleSigint);
 
-	//configuration des signaux :
+    try {
+        g_server = new Server(port, password);
+        std::cout << "Serveur IRC démarré et en attente de connexions sur le port " << port << "..." << std::endl;
+        g_server->run(); // Boucle principale
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Erreur fatale: " << e.what() << std::endl;
+        delete g_server;
+        return 1;
+    }
 
-	struct sigaction sa;
-	//quand un signal est recu, on exec handleSignal
-	sa.sa_handler = handleSignal;
-	sigemptyset(&sa.sa_mask);
-	//permet de rebooter une fonction comme read ou quoi plutot que la bloquer par le signal si besoin
-	sa.sa_flags = SA_RESTART;
-	if(sigaction(SIGINT, &sa, NULL) == -1 || sigaction(SIGTSTP, &sa, NULL) == -1){
-		std::cerr << "Signals configuration failed" << std::endl;
-		return EXIT_FAILURE;
-	}	
-
-	//TODO: Faire un try catch pour executer le serveur
-
-	return EXIT_SUCCESS;
+    return 0;
 }
