@@ -109,7 +109,6 @@ void Server::acceptNewClient() {
 
     _pollFds.push_back(pfd);
     
-    // Création du client directement dans le vector
     Client *newClient = new Client(clientFd);
     clients.push_back(newClient);
 
@@ -121,12 +120,12 @@ void Server::handleClientInput(int fd) {
     memset(buffer, 0, sizeof(buffer));
     int bytesRead = recv(fd, buffer, BUFFER_SIZE, 0);
 
-    Client *client = getClientByFd(fd);  // 🔁 On le récupère UNE FOIS
+    Client *client = getClientByFd(fd);  
     if (!client) return;
 
     if (bytesRead <= 0) {
 		if(fd){
-			handleQuit(client);  // Supprime le client
+			handleQuit(client);  
 
         	for (size_t i = 0; i < _pollFds.size(); ++i) {
             	if (_pollFds[i].fd == fd) {
@@ -176,7 +175,7 @@ void Server::splitCommand(Client *client, std::string cmds)
 		if (line.empty()) continue; // Sauter les lignes vides
 		// Utiliser un istringstream pour découper la ligne en commande et arguments
 		std::istringstream lineStream(line);
-		lineStream >> command;  // Extraire la commande (ex: "CAP", "PASS", etc.)
+		lineStream >> command;  // Extraire la commande
 
 		std::string arg;
 		while (lineStream >> arg)

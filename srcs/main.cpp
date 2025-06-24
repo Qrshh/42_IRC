@@ -1,7 +1,6 @@
 #include <iostream>
 #include <cstdlib>
 #include <cstring>
-#include <cerrno>
 #include <csignal>
 #include "Client.hpp"
 #include "Channel.hpp"
