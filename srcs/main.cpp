@@ -36,7 +36,7 @@ int main(int argc, char **argv)
     try {
         g_server = new Server(port, password);
         std::cout << "Serveur IRC démarré et en attente de connexions sur le port " << port << "..." << std::endl;
-        g_server->run(); // Boucle principale
+        g_server->run();
     }
     catch (const std::exception& e) {
         std::cerr << "Erreur fatale: " << e.what() << std::endl;

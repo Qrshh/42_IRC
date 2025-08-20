@@ -8,14 +8,15 @@ Server::Server(int port, const std::string &password) : _password(password) {
 	try{
 		fcntl(_serverFd, F_SETFL, O_NONBLOCK);
 
-		struct sockaddr_in addr;
+		struct sockaddr_in addr; //structure qui permet de dire au systeme sur quel port on ecoute
 		addr.sin_family = AF_INET;
 		addr.sin_addr.s_addr = INADDR_ANY;
-		addr.sin_port = htons(port);
+		addr.sin_port = htons(port); //convertit le numero de port pour aller avec le TCP/IP
 
+		//association du socket a l'IP + port
 		if (bind(_serverFd, (struct sockaddr*)&addr, sizeof(addr)) < 0)
 			throw std::runtime_error("bind() failed");
-
+		//passe le socket en ecoute
 		if (listen(_serverFd, SOMAXCONN) < 0)
 			throw std::runtime_error("listen() failed");
 
@@ -154,33 +155,31 @@ void Server::handleClientInput(int fd) {
 }
 
 
-void Server::splitCommand(Client *client, std::string cmds)
+void Server::splitCommand(Client *client, std::string rawInput)
 {
-    // Enlever les caractères \r et \n à la fin de la chaîne
-    std::string input(cmds);
-    input.erase(input.find_last_not_of("\r\n") + 1);
+	std::string input = rawInput;
+	input.erase(input.find_last_not_of("\r\n") + 1);
 
-    // Séparer les différentes lignes de commande
-    std::istringstream stream(input);
-    std::string line;
-
-	while (std::getline(stream, line))  // Lire ligne par ligne
+	std::istringstream stream(input);
+	std::string line;
+	while(std::getline(stream, line))
 	{
-		std::string command;
-		std::vector<std::string> args;
-		// Enlever les espaces supplémentaires en début et fin de ligne
 		line.erase(0, line.find_first_not_of(" \t"));
 		line.erase(line.find_last_not_of(" \t") + 1);
 
-		if (line.empty()) continue; // Sauter les lignes vides
-		// Utiliser un istringstream pour découper la ligne en commande et arguments
-		std::istringstream lineStream(line);
-		lineStream >> command;  // Extraire la commande
+		if(line.empty())
+			continue;
+		
+		//extraction cmd
+		std::istringstream streamLine(line);
+		std::string command; 
+		streamLine >> command;
 
+		std::vector<std::string> args;
 		std::string arg;
-		while (lineStream >> arg)
-		args.push_back(arg);  // Extraire tous les arguments après la commande
-		// Appeler la méthode qui gère la commande
+		while(streamLine >> arg)
+			args.push_back(arg);
+
 		handleCommand(client, command, args);
 	}
 }
@@ -273,100 +272,151 @@ void Server::handleCommand(Client *client, const std::string &command, std::vect
 
 void Server::handleModes(Client *client, const std::vector<std::string>& args)
 {
-	if (args[0][0] != '#')
-		return;
-	if (args.size() < 2)
+	if(!isValidCommand(client, args))
+		return ;
+
+	Channel* channel = getChannelByName(args[0]);
+	if(!isAuthorized(client, channel, args[0]))
+		return ;
+
+	applyMode(client, channel, args);
+
+	sendChannelMode(client, channel);
+}
+
+void Server::sendChannelMode(Client* client, Channel* channel)
+{
+	std::string modes = "+";
+	std::string params;
+
+	if(channel->isInviteOnly()) modes += "i";
+	if(channel->isTopicRestricted()) modes += "t";
+	if(!channel->getPassword().empty())
 	{
-		sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE"));
-		return;
+		modes += "k";
+		params += channel->getPassword() + " ";
 	}
-	Channel *channel = getChannelByName(args[0]);
-	if (!channel)
+	if(channel->getUserLimit() > 0)
 	{
-		sendMessage(client->getSocket(), ERR_NOSUCHCHANNEL(client->getNickname(), args[0]));
-		return;
-	}
-	if (channel->findOperator(client) == 0)
-	{
-		sendMessage(client->getSocket(), ERR_NOTOPERATOR(args[0]));
-		return;
+		modes += "l";
+		params += std::to_string(channel->getUserLimit()) + " ";
 	}
 
-	std::string modes = args[1];
-	bool adding = true;
-	size_t param_index = 2;
+	if(params.empty() && params.back() == ' ')
+		params.pop_back();
+
+	sendMessage(client->getSocket(), RPL_CHANNELMODES(client->getNickname(), channel->getChannelName(), modes, params));
+}
+
+bool Server::isValidCommand(Client *client, const std::vector<std::string>& args)
+{
+	if(args.empty() || args[0][0] != '#')
+		return false;
 	
-	for (size_t i = 0; i < modes.length(); i++)
-	{
+	if(args.size() < 2){
+		sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE"));
+		return false;
+	}
+
+	return true;
+	
+}
+
+bool Server::isAuthorized(Client *client, Channel *channel, const std::string& channelName)
+{
+	if(!channel){
+		sendMessage(client->getSocket(), ERR_NOSUCHCHANNEL(client->getNickname(), channelName));
+		return false;
+	}
+
+	if(channel->findOperator(client) == 0){
+		sendMessage(client->getSocket(), ERR_NOTOPERATOR(channelName));
+		return false;
+	}
+
+	return true;
+}
+
+void Server::applyMode(Client *client, Channel *channel, const std::vector<std::string>& args)
+{
+	std::string modes = args[1];
+	bool sign = true;
+	size_t paramIndex = 2;
+
+
+	for(size_t i = 0; i < modes.length(); i++){
 		char mode = modes[i];
-		if (mode == '+')
-		adding = true;
+
+		if(mode == '+')
+			sign = true;
 		else if (mode == '-')
-		adding = false;
-		else
-		{
-			switch (mode)
-			{
-				case 'i':
-					channel->setInviteOnly(adding);
-					break;
-				case 't':
-					channel->setTopicRestricted(adding);
-					break;
-				case 'k':
-					if (adding)
-					{
-						if (param_index >= args.size())
-						{
-							sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE"));
-							continue;
-						}
-						channel->setPassword(args[param_index++]);
-					}
-					else
-						channel->setPassword("");
-					break;
-				case 'o':
-					if (param_index >= args.size())
-					{
-						sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE"));
-						continue;
-					}
-					{
-						std::string targetNick = args[param_index++];
-						Client* target = getClientByNickname(targetNick);
-						if (!target)
-						{
-							sendMessage(client->getSocket(), ERR_NOSUCHNICK(client->getNickname(), targetNick));
-							continue;
-						}
-						if (adding)
-							channel->addOperator(target);
-						else
-							channel->removeOperator(target);
-					}
-					break;
-				case 'l':
-					if (adding)
-					{
-						if (param_index >= args.size())
-						{
-							sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE"));
-							continue;
-						}
-						channel->setUserLimit(std::atoi(args[param_index++].c_str()));
-					}
-					else
-						channel->setUserLimit(0);
-					break;
-				default:
-					sendMessage(client->getSocket(), ERR_UNKNOWNMODE(client->getNickname(), channel->getChannelName(), std::string(1, mode)));
-					break;
-			}
-		}
+			sign = false;
+		else 
+			execMode(client, channel, args, mode, sign, paramIndex);
 	}
 }
 
+void Server::execMode(Client *client, Channel *channel, const std::vector<std::string>& args, char mode, bool sign, size_t& paramIndex)
+{
+	switch(mode){
+		case 'i':
+			channel->setInviteOnly(sign);
+			break ;
+
+		case 't':
+			channel->setTopicRestricted(sign);
+			break ;
+
+		case 'k':
+			if(!sign)
+				channel->setPassword("");
+			else 
+			{
+				if(args.size() <= paramIndex)
+				{
+					sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE"));
+					break ;
+				}
+				channel->setPassword(args[paramIndex++]);
+			}
+			break ;
+		case 'o':
+			if(paramIndex >= args.size())
+			{
+				sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE"));
+				break ;
+			}
+			{
+				std::string target = args[paramIndex++];
+				Client *targetClient = getClientByNickname(target);
+				if(!targetClient){
+					sendMessage(client->getSocket(), ERR_NOSUCHNICK(client->getNickname(), target));
+					return ;
+				}
+				if(sign)
+					channel->addOperator(targetClient);
+				else
+					channel->removeOperator(targetClient);
+			}
+			break ;
+		case 'l':
+			if(sign)
+			{
+				if(paramIndex >= args.size()){
+					sendMessage(client->getSocket(), ERR_NEEDMOREPARAMS(client->getNickname(), "MODE"));
+					return ;
+				}
+				channel->setUserLimit(std::atoi(args[paramIndex++].c_str()));
+			} else 
+				channel->setUserLimit(0);
+
+			break ;
+
+		default:
+			sendMessage(client->getSocket(), ERR_UNKNOWNMODE(client->getNickname(), channel->getChannelName(), std::string(1, mode)));
+			break ;
+	}
+}
 	
 
 void Server::handlePing(Client* client, const std::vector<std::string>& args){
@@ -504,12 +554,11 @@ void  Server::handleNick(Client *client, const std::string &newNick)
 		}
 	}
 
-	std::string oldNick = client->getNickname();
+	const std::string ancien = client->getNickname();
 	client->setNickname(newNick);
-
-	sendMessage(client->getSocket(), RPL_NICKCHANGE(oldNick, newNick));
 	client->setSentNick(true);
-	return ;
+
+	sendMessage(client->getSocket(), RPL_NICKCHANGE(ancien, newNick));
 }
 
 void Server::handleUser(Client *client, const std::vector<std::string> &params){
@@ -541,7 +590,7 @@ void Server::handlePrivMessageChannel(Client *client, const std::vector<std::str
     }
 
     std::string targetChannel = params[0];
-    std::string message = joinParams(params);  // Tu peux définir joinParams pour concaténer les params à partir d’un index
+    std::string message = joinParams(params);
     if (!message.empty() && message[0] == ':')
         message = message.substr(1);
 
@@ -677,14 +726,8 @@ void Server::handleTopic(Client *client, const std::vector<std::string> &args){
 
 	std::string topic = joinParams(args);
 
-	if(channel->isTopicRestricted())
+	if(channel->isTopicRestricted() && !channel->isOperator(client))
 	{
-		if(channel->findOperator(client) == 1)
-		{
-			channel->setChannelTopic(topic);
-			channel->topicChange();
-			return ;
-		}
 		sendMessage(client->getSocket(), ERR_NOTOPERATOR(channel->getChannelName()));
 		return ;
 	}
