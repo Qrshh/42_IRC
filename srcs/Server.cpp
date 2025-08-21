@@ -280,32 +280,6 @@ void Server::handleModes(Client *client, const std::vector<std::string>& args)
 		return ;
 
 	applyMode(client, channel, args);
-
-	sendChannelMode(client, channel);
-}
-
-void Server::sendChannelMode(Client* client, Channel* channel)
-{
-	std::string modes = "+";
-	std::string params;
-
-	if(channel->isInviteOnly()) modes += "i";
-	if(channel->isTopicRestricted()) modes += "t";
-	if(!channel->getPassword().empty())
-	{
-		modes += "k";
-		params += channel->getPassword() + " ";
-	}
-	if(channel->getUserLimit() > 0)
-	{
-		modes += "l";
-		params += std::to_string(channel->getUserLimit()) + " ";
-	}
-
-	if(params.empty() && params.back() == ' ')
-		params.pop_back();
-
-	sendMessage(client->getSocket(), RPL_CHANNELMODES(client->getNickname(), channel->getChannelName(), modes, params));
 }
 
 bool Server::isValidCommand(Client *client, const std::vector<std::string>& args)
@@ -809,6 +783,7 @@ void Server::handleKick(Client* kicker, const std::vector<std::string>& args){
 	std::string kickMsg = ":" + kicker->getNickname() + "!" + kicker->getUsername() + "@" + kicker->getHostname() + " KICK " + channelName + " " + targetNick + " :" + reason + "\r\n";
 	sendMessageToChannel(channelName, kickMsg);
 	channel->removeMember(target);
+	channel->removeOperator(target);
 	target->leaveChannel(channel);
 	std::cout << "DEBUG: " << targetNick << " kicked from " << channelName << " by " << kicker->getNickname() <<std::endl;
 }

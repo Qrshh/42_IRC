@@ -72,7 +72,6 @@ public:
 	bool isAuthorized(Client *client, Channel *channel, const std::string& channelName);
 	void applyMode(Client *client, Channel *channel, const std::vector<std::string>& args);
 	void execMode(Client *client, Channel *channel, const std::vector<std::string>& args, char mode, bool adding, size_t& paramIndex);
-	void sendChannelMode(Client* client, Channel* channel);
 	
 };
 
